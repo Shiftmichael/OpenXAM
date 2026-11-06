@@ -6,7 +6,7 @@
 
 Vision-language-action models (VLAs) and world-action models (WAMs) differ mainly in what information reaches the action generator: a VLM's knowledge, a video model's sense of dynamics, a written plan, optical flow, touch. OpenXAM treats that X as a setting. The goal is one codebase where a lab can fine-tune, run and evaluate these models on a modest GPU budget, starting from public pretrained weights.
 
-> **Status: early.** Today's code is [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`, moved into the `openxam` package. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable does not exist yet; it is the next step.
+> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and MoT training and action sampling match EasyWAM-MoT exactly on small random models. Training and evaluation scripts still use the EasyWAM classes.
 
 ## Design
 
@@ -40,7 +40,8 @@ Everything below comes from EasyWAM and has not been rerun in this repository. E
 
 ## Roadmap
 
-- [ ] Multi-tower core: towers, read table, noise plan and losses as configuration
+- [x] Configs for towers, read table, noise plan and losses, with checks that run before any GPU time
+- [ ] Multi-tower core running every structure (MoT is done, see [the design note](docs/design/multi_tower_core_zh.md))
 - [ ] VLM tower and a VLA path
 - [ ] Given-action video prediction
 - [ ] More sources: future features, subgoal images, optical flow, text or code plans
@@ -66,10 +67,13 @@ python experiments/libero/run_libero_manager.py task=libero_easywam_mot_wan22 ck
 
 Task and class names keep the `easywam` prefix until the new core replaces them.
 
-To check the package layout without PyTorch, a GPU or a simulator:
+Tests that need neither a GPU nor a simulator:
 
 ```bash
 python tests/test_package_imports.py
+python tests/test_core_spec.py
+python tests/test_core_plan.py
+python tests/test_parity_mot.py   # needs PyTorch
 ```
 
 ## Documentation
@@ -89,7 +93,7 @@ OpenXAM/
 ├── docs/           # Guides, plus EasyWAM's results and blog
 ├── experiments/    # Benchmark evaluators
 ├── scripts/        # Training and preprocessing entry points
-├── src/openxam/    # Models, data pipeline, runtime and trainer
+├── src/openxam/    # Core, towers, models, data pipeline, runtime and trainer
 └── tests/          # Tests that run on CPU
 ```
 

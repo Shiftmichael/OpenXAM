@@ -17,6 +17,9 @@ Before submitting, run:
 
 ```bash
 python tests/test_package_imports.py
+python tests/test_core_spec.py
+python tests/test_core_plan.py
+python tests/test_parity_mot.py
 git diff --check
 ```
 
@@ -45,6 +48,9 @@ Differences between training runs of the same recipe can be as large as differen
 
 ```bash
 python tests/test_package_imports.py
+python tests/test_core_spec.py
+python tests/test_core_plan.py
+python tests/test_parity_mot.py
 git diff --check
 ```
 
