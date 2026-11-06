@@ -6,7 +6,7 @@ LIBERO-Pro evaluates checkpoints trained on standard LIBERO under five perturbat
 
 ## Installation
 
-Clone the official repository into EasyWAM's `third_party` directory:
+Clone the official repository into OpenXAM's `third_party` directory:
 
 ```bash
 git clone https://github.com/Zxy-MLlab/LIBERO-PRO.git \
@@ -14,7 +14,7 @@ git clone https://github.com/Zxy-MLlab/LIBERO-PRO.git \
 git -C third_party/LIBERO-PRO checkout eafdb809426b13153aa1e4c42d6601844217dfec
 ```
 
-LIBERO-Pro uses the same simulator dependencies as LIBERO. In the EasyWAM environment, install the packages needed by evaluation:
+LIBERO-Pro uses the same simulator dependencies as LIBERO. In the OpenXAM environment, install the packages needed by evaluation:
 
 ```bash
 pip install mujoco easydict robosuite bddl future \
@@ -57,7 +57,7 @@ third_party/LIBERO-PRO/
         └── ...
 ```
 
-EasyWAM's defaults correspond to this layout:
+OpenXAM's defaults correspond to this layout:
 
 ```yaml
 EVALUATION:
@@ -110,7 +110,7 @@ Valid perturbations are `object`, `position`, `semantic`, `task`, and `environme
 
 ## Concurrency, results, and resume behavior
 
-`MULTIRUN.num_gpus`, `gpu_ids`, `workers_per_gpu`, `env_num_per_worker`, `inference_batch_size`, and `inference_batch_wait_ms` have the same meaning as in other EasyWAM managers. Every model worker loads its own model, while its rollout actors share a dynamic inference batcher.
+`MULTIRUN.num_gpus`, `gpu_ids`, `workers_per_gpu`, `env_num_per_worker`, `inference_batch_size`, and `inference_batch_wait_ms` have the same meaning as in other OpenXAM managers. Every model worker loads its own model, while its rollout actors share a dynamic inference batcher.
 
 Results are written under `evaluate_results/libero_pro/<task>/<timestamp>/`. Outputs include the task manifest, upstream source metadata, isolated runtime configuration, worker logs, per-task results, error records, `summary.json`, `summary.csv`, `task_results.csv`, and `leaderboard.csv`. The leaderboard uses normalized 0–1 success rates and contains the official four-suite by five-perturbation matrix plus macro averages.
 

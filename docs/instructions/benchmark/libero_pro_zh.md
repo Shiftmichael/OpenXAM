@@ -6,7 +6,7 @@ LIBERO-Pro 使用在标准 LIBERO suite 上训练得到的 checkpoint，评测 O
 
 ## 安装
 
-将官方仓库克隆到 EasyWAM 的 `third_party` 目录：
+将官方仓库克隆到 OpenXAM 的 `third_party` 目录：
 
 ```bash
 git clone https://github.com/Zxy-MLlab/LIBERO-PRO.git \
@@ -14,7 +14,7 @@ git clone https://github.com/Zxy-MLlab/LIBERO-PRO.git \
 git -C third_party/LIBERO-PRO checkout eafdb809426b13153aa1e4c42d6601844217dfec
 ```
 
-LIBERO-Pro 与 LIBERO 使用相同的仿真依赖。在 EasyWAM 环境中安装评测所需的软件包：
+LIBERO-Pro 与 LIBERO 使用相同的仿真依赖。在 OpenXAM 环境中安装评测所需的软件包：
 
 ```bash
 pip install mujoco easydict robosuite bddl future \
@@ -57,7 +57,7 @@ third_party/LIBERO-PRO/
         └── ...
 ```
 
-EasyWAM 默认配置与该目录结构对应：
+OpenXAM 默认配置与该目录结构对应：
 
 ```yaml
 EVALUATION:
@@ -110,7 +110,7 @@ python experiments/libero_pro/run_libero_pro_manager.py \
 
 ## 并发、结果与续评
 
-`MULTIRUN.num_gpus`、`gpu_ids`、`workers_per_gpu`、`env_num_per_worker`、`inference_batch_size` 和 `inference_batch_wait_ms` 与其他 EasyWAM benchmark 含义一致。每个 model worker 独立加载模型，worker 内的 rollout actor 共享动态推理 batcher。
+`MULTIRUN.num_gpus`、`gpu_ids`、`workers_per_gpu`、`env_num_per_worker`、`inference_batch_size` 和 `inference_batch_wait_ms` 与其他 OpenXAM benchmark 含义一致。每个 model worker 独立加载模型，worker 内的 rollout actor 共享动态推理 batcher。
 
 结果写入 `evaluate_results/libero_pro/<task>/<timestamp>/`，包括任务清单、上游源码信息、隔离的运行时配置、worker 日志、逐任务结果、错误记录、`summary.json`、`summary.csv`、`task_results.csv` 和 `leaderboard.csv`。`leaderboard.csv` 使用 0–1 成功率，按四个 suite × 五类扰动输出官方矩阵和宏平均。
 

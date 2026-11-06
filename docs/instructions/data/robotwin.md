@@ -2,7 +2,7 @@
 
 [中文](robotwin_zh.md) | [Data index](README.md) | [Evaluation guide](../benchmark/robotwin.md) | [Back to project README](../../../README.md)
 
-This guide covers RoboTwin 2.0 training-data preparation and training in EasyWAM.
+This guide covers RoboTwin 2.0 training-data preparation and training in OpenXAM.
 
 ## Training Data
 
@@ -23,7 +23,7 @@ data/robotwin2.0-lerobot-v3.0/
 └── dataset_stats.json     # normalization statistics for full mode
 ```
 
-EasyWAM requires LeRobot v3.0 datasets for training.
+OpenXAM requires LeRobot v3.0 datasets for training.
 
 The pipeline combines the high camera and two wrist cameras into a 384×320 video. It retains all 33 action/state steps and decodes 9 sparse video timestamps.
 

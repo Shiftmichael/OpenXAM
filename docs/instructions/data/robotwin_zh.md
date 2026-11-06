@@ -2,7 +2,7 @@
 
 [English](robotwin.md) | [数据索引](README_zh.md) | [评测指南](../benchmark/robotwin_zh.md) | [返回项目 README](../../../README_zh.md)
 
-本文介绍 EasyWAM 中 RoboTwin 2.0 的训练数据准备与训练流程。
+本文介绍 OpenXAM 中 RoboTwin 2.0 的训练数据准备与训练流程。
 
 ## 训练数据
 
@@ -23,7 +23,7 @@ data/robotwin2.0-lerobot-v3.0/
 └── dataset_stats.json     # full 模式归一化统计
 ```
 
-EasyWAM 训练仅支持 LeRobot v3.0 数据集。
+OpenXAM 训练仅支持 LeRobot v3.0 数据集。
 
 数据管线会把 high camera 和两个 wrist camera 组合为 384×320 视频，保留全部 33 个 action/state 时间步，并稀疏解码 9 帧视频。
 

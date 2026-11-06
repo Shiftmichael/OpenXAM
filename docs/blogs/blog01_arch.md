@@ -1,5 +1,7 @@
 # 🧭 What WAM Architecture Do We Need?
 
+> This article was written by the EasyWAM team and is kept here for reference.
+
 When designing a World Action Model, there's a question we can never quite avoid: **should video and action share a single backbone, or be modeled separately? And does inference really need to generate a future prediction at all?** This post draws on EasyWAM's full set of results on LIBERO / LIBERO-Plus for three representative architectures, laying the training regime (full-parameter / LoRA) and generalization ability (LIBERO-Plus) side by side, and walking through what the numbers say and the architectural reasons behind them. The results below cover Wan2.2-TI2V-5B and Cosmos-Predict2.5-2B; LoRA results are available for Wan2.2 on LIBERO.
 
 ## 🧱 Experimental Setup

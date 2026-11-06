@@ -2,7 +2,7 @@
 
 [English](libero.md) | [数据索引](README_zh.md) | [评测指南](../benchmark/libero_zh.md) | [返回项目 README](../../../README_zh.md)
 
-本文介绍 EasyWAM 中 LIBERO 的训练数据准备与训练流程。
+本文介绍 OpenXAM 中 LIBERO 的训练数据准备与训练流程。
 
 ## 训练数据
 
@@ -24,7 +24,7 @@ data/libero-lerobot-v3.0/
 └── libero_spatial/
 ```
 
-EasyWAM 训练仅支持 LeRobot v3.0 数据集。
+OpenXAM 训练仅支持 LeRobot v3.0 数据集。
 
 数据管线会在 224 px 分辨率下横向拼接 agent 和 wrist 两个相机，保留全部 33 个 action/state 时间步，同时仅解码 `[0, 4, ..., 32]` 对应的 9 帧视频。
 

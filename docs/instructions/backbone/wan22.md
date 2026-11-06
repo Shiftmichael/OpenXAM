@@ -6,7 +6,7 @@ Wan2.2 is supported by EasyWAM-Unified, MoT, MoT-Joint, MoT-IDM, and Hidden, wit
 
 ## Prepare model weights
 
-Run from the project root after installing EasyWAM and the Hugging Face CLI:
+Run from the project root after installing OpenXAM and the Hugging Face CLI:
 
 ```bash
 mkdir -p checkpoints

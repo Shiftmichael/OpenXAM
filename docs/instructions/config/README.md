@@ -1,8 +1,8 @@
-# EasyWAM Configuration Guide
+# OpenXAM Configuration Guide
 
 [中文](README_zh.md) | [Back to README](../../../README.md)
 
-EasyWAM uses [Hydra](https://hydra.cc/) to compose training, data, model, and task configuration. This directory explains how the configuration groups fit together and how to tune them without copying an entire task file.
+OpenXAM uses [Hydra](https://hydra.cc/) to compose training, data, model, and task configuration. This directory explains how the configuration groups fit together and how to tune them without copying an entire task file.
 
 ## Configuration layout
 

@@ -12,7 +12,7 @@ git -C third_party/RoboTwin checkout 96c1feab536306b50c26af200044fcdf126e8904
 git -C third_party/RoboTwin submodule update --init --recursive
 ```
 
-使用 Python 3.10，并安装 EasyWAM 尚未提供的评测依赖：
+使用 Python 3.10，并安装 OpenXAM 尚未提供的评测依赖：
 
 ```bash
 pip install scipy==1.10.1 transforms3d==0.4.2 sapien==3.0.0b1 \
@@ -78,4 +78,4 @@ python experiments/robotwin/run_robotwin_manager.py \
 
 manager 会依次评测每个任务的 `demo_clean` 和 `demo_randomized`。没有传入 instruction override 时，使用当前 RoboTwin 各任务配置声明的划分。`EVALUATION.eval_num_episodes` 控制每个阶段的 episode 数量，`EVALUATION.replan_steps` 控制重新规划前连续执行的预测动作数。
 
-`MULTIRUN.gpu_ids=null` 时使用前 `num_gpus` 张卡；否则从有序的 `gpu_ids` 候选池中选择前 `num_gpus` 项。模型 worker 在选中的 GPU 间轮询分配。每个 worker 独立加载一份 EasyWAM，其 rollout 客户端使用相互隔离的 XPolicyLab 会话并共享该 worker 的动态推理 batcher；提高 `workers_per_gpu` 会增加模型显存占用。结果仍保存在 `evaluate_results/robotwin/<checkpoint-tag>/<timestamp>/`，其中包括上游产物、各阶段结果、worker 日志、`summary.json` 和 `summary.csv`。复用相同的 `EVALUATION.output_dir` 时，只续评尚无有效结果的阶段。
+`MULTIRUN.gpu_ids=null` 时使用前 `num_gpus` 张卡；否则从有序的 `gpu_ids` 候选池中选择前 `num_gpus` 项。模型 worker 在选中的 GPU 间轮询分配。每个 worker 独立加载一份 OpenXAM，其 rollout 客户端使用相互隔离的 XPolicyLab 会话并共享该 worker 的动态推理 batcher；提高 `workers_per_gpu` 会增加模型显存占用。结果仍保存在 `evaluate_results/robotwin/<checkpoint-tag>/<timestamp>/`，其中包括上游产物、各阶段结果、worker 日志、`summary.json` 和 `summary.csv`。复用相同的 `EVALUATION.output_dir` 时，只续评尚无有效结果的阶段。

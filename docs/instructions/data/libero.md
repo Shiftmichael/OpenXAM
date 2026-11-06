@@ -2,7 +2,7 @@
 
 [中文](libero_zh.md) | [Data index](README.md) | [Evaluation guide](../benchmark/libero.md) | [Back to project README](../../../README.md)
 
-This guide covers LIBERO training-data preparation and training in EasyWAM.
+This guide covers LIBERO training-data preparation and training in OpenXAM.
 
 ## Training Data
 
@@ -24,7 +24,7 @@ data/libero-lerobot-v3.0/
 └── libero_spatial/
 ```
 
-EasyWAM requires LeRobot v3.0 datasets for training.
+OpenXAM requires LeRobot v3.0 datasets for training.
 
 The pipeline concatenates the agent and wrist cameras at 224 px resolution. It retains all 33 action/state steps while decoding only the 9 video timestamps `[0, 4, ..., 32]`.
 

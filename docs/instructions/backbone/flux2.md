@@ -153,4 +153,4 @@ PYTHON
 
 Training consumes `video` shaped `[B,3,T,H,W]`, with values in `[-1,1]`, `T >= 2`, and image dimensions divisible by 16. It uses the first and last frames, `context`/`context_mask` (or `prompt`), and optional `[B,T]` `image_is_pad`; padded target frames contribute zero loss. Inference accepts one image and produces the current image and future endpoint (`num_frames=2`), with `guidance_scale=1` and no negative conditions.
 
-Core checkpoints store DiT weights, backbone/variant metadata, the step, and optional optimizer state. Recreate the Core with the same pretrained VAE and text configuration before restoring; these are visual checkpoints, while simulator evaluation uses EasyWAM policy checkpoints.
+Core checkpoints store DiT weights, backbone/variant metadata, the step, and optional optimizer state. Recreate the Core with the same pretrained VAE and text configuration before restoring; these are visual checkpoints, while simulator evaluation uses OpenXAM policy checkpoints.

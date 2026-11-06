@@ -1,4 +1,4 @@
-# EasyWAM Documentation
+# OpenXAM Documentation
 
 [中文](README_zh.md) | [Back to project README](../README.md)
 

@@ -1,73 +1,57 @@
-# Contributing to EasyWAM
+# Contributing to OpenXAM
 
 [中文](#中文)
 
-EasyWAM is built with the community. Contributions that fix bugs, improve documentation, add model or benchmark support, or make World Action Model research more accessible are welcome.
+## Before you start
 
-## Report a bug
+Open an issue for anything larger than a small fix, so we can agree on the approach first. The multi-tower core is still being built, and new information sources should wait for it unless we have talked about them.
 
-Open an [issue](https://github.com/OpenMOSS/EasyWAM/issues) and include:
+## Pull requests
 
-- A concise description of the problem and expected behavior.
-- Steps and commands that reproduce it.
-- The task configuration and any relevant overrides.
-- Environment details, logs, and the complete error traceback.
+- Keep each change focused, and work on a branch rather than on `main`.
+- Update the English and Chinese documents together when user-facing behavior changes.
+- Do not commit datasets, checkpoints, generated outputs, credentials or machine-specific paths.
+- Say in the pull request what you changed, how you checked it, and what you did not check.
 
-Do not include private datasets, credentials, access tokens, or other sensitive information.
-
-## Propose a feature
-
-Open an issue before starting a substantial change. Describe the problem, the proposed behavior, affected models or benchmarks, and any compatibility considerations. This gives maintainers and contributors a chance to agree on scope before implementation begins.
-
-## Submit a pull request
-
-- Keep the change focused and avoid unrelated cleanup.
-- Follow the existing code and configuration conventions.
-- Add or update tests for behavior changes when practical.
-- Update the relevant English and Chinese documentation when user-facing behavior changes.
-- Describe the change, compatibility impact, and verification commands in the pull request.
-- Do not commit datasets, checkpoints, generated outputs, credentials, or machine-specific paths.
-
-Before submitting, run the tests relevant to your change and check formatting with:
+Before submitting, run:
 
 ```bash
+python tests/test_package_imports.py
 git diff --check
 ```
 
-If you would like to contribute or discuss a change with the team, contact [siyinwang20@fudan.edu.cn](mailto:siyinwang20@fudan.edu.cn).
+## Reporting results
+
+Differences between training runs of the same recipe can be as large as differences between methods, so:
+
+- Use at least two training seeds, and compare methods on the same evaluation episodes.
+- State the commit, config, simulator version and number of episodes.
+- Keep simulator versions fixed within a comparison. LIBERO success rates depend on the MuJoCo version.
 
 ## 中文
 
-EasyWAM 由社区共同建设。我们欢迎修复 bug、改进文档、增加模型或 benchmark 支持，以及帮助降低 World Action Model 研究门槛的贡献。
+## 开始之前
 
-### 报告问题
+小修改以外的工作，请先开 issue，把做法说好再动手。多塔核心还在写，新的信息来源除非已经讨论过，否则先等它完成。
 
-请创建 [Issue](https://github.com/OpenMOSS/EasyWAM/issues)，并提供：
+## 提交 Pull Request
 
-- 问题与预期行为的简要说明。
-- 可以复现问题的步骤和命令。
-- 使用的 task 配置及相关 overrides。
-- 环境信息、日志和完整的错误堆栈。
+- 每次改动聚焦一件事，在分支上做，不要直接改 `main`。
+- 用户能感知的行为有变化时，中英文文档一起更新。
+- 不要提交数据集、权重、生成结果、密钥和只在自己机器上有效的路径。
+- 在 Pull Request 里写清楚改了什么、怎么验证的、哪些没验证。
 
-请勿提交私有数据集、凭据、访问令牌或其他敏感信息。
-
-### 提出功能建议
-
-对于较大的改动，请先创建 Issue，说明待解决的问题、预期行为、受影响的模型或 benchmark，以及兼容性方面的考虑，以便在开始实现前确认范围。
-
-### 提交 Pull Request
-
-- 保持改动聚焦，避免混入无关清理。
-- 遵循现有代码与配置约定。
-- 行为发生变化时，尽可能增加或更新测试。
-- 面向用户的行为发生变化时，同步更新相关中英文文档。
-- 在 Pull Request 中说明改动内容、兼容性影响和验证命令。
-- 不要提交数据集、checkpoint、生成结果、凭据或机器相关的路径。
-
-提交前请运行与改动相关的测试，并检查格式：
+提交前运行：
 
 ```bash
+python tests/test_package_imports.py
 git diff --check
 ```
 
-如果希望参与贡献或与团队讨论改动，请联系 [siyinwang20@fudan.edu.cn](mailto:siyinwang20@fudan.edu.cn)。
+## 报告结果
+
+同一配方不同训练种子的差距，可能和不同方法之间的差距一样大，所以：
+
+- 至少用两颗训练种子，并在相同的评测局上比较不同方法。
+- 写明提交号、配置、仿真器版本和评测局数。
+- 同一组比较里仿真器版本要固定。LIBERO 的成功率和 MuJoCo 版本有关。

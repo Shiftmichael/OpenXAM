@@ -1,5 +1,7 @@
 # EasyWAM Benchmark 结果
 
+> 这些是 EasyWAM 在 `d7c7c5a` 提交时自己报告的结果，在 OpenXAM 里还没有重跑过。
+
 [English](result.md)
 
 本页面展示 EasyWAM 的 Benchmark 结果。报告指标为任务成功率（%），数值越高越好。所有结果均在 `state_position: sequence` 设置下报告，即将 state/proprio token 放在 action token 之后并加入模型序列。

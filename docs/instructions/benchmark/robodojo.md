@@ -17,7 +17,7 @@ git -C third_party/RoboDojo submodule update --init --recursive
 (cd third_party/RoboDojo && bash scripts/robodojo.sh doctor)
 ```
 
-Run the manager from the EasyWAM Python environment. The simulator clients use the separate `RoboDojo` conda environment by default. The manager installs its small `easywam_policy` client adapter into the RoboDojo checkout on first use; it will not overwrite a different adapter already present there.
+Run the manager from the OpenXAM Python environment. The simulator clients use the separate `RoboDojo` conda environment by default. The manager installs its small `easywam_policy` client adapter into the RoboDojo checkout on first use; it will not overwrite a different adapter already present there.
 
 ## Evaluation
 
@@ -58,4 +58,4 @@ python experiments/robodojo/run_robodojo_manager.py \
   EVALUATION.eval_num_episodes=1 MULTIRUN.num_gpus=1
 ```
 
-The official `_result.json` and per-camera videos stay in `third_party/RoboDojo/eval_result/RoboDojo/`. EasyWAM writes logs, the resolved configuration, `summary.json`, and `summary.csv` to `evaluate_results/robodojo/<task>/<timestamp>/`. Summary `success_rate` and `score` values are percentages (0–100), matching RoboDojo's official report. A complete official run also refreshes RoboDojo's `_summary.md`. Reuse `EVALUATION.output_dir=<existing-directory>` to resume; jobs with a complete native result are skipped. Use `EVALUATION.sim_env=null` only if the current Python environment already contains RoboDojo and Isaac Sim.
+The official `_result.json` and per-camera videos stay in `third_party/RoboDojo/eval_result/RoboDojo/`. OpenXAM writes logs, the resolved configuration, `summary.json`, and `summary.csv` to `evaluate_results/robodojo/<task>/<timestamp>/`. Summary `success_rate` and `score` values are percentages (0–100), matching RoboDojo's official report. A complete official run also refreshes RoboDojo's `_summary.md`. Reuse `EVALUATION.output_dir=<existing-directory>` to resume; jobs with a complete native result are skipped. Use `EVALUATION.sim_env=null` only if the current Python environment already contains RoboDojo and Isaac Sim.

@@ -1,5 +1,7 @@
 # EasyWAM Benchmark Results
 
+> These are EasyWAM's own results at commit `d7c7c5a`. They have not been rerun in OpenXAM.
+
 [中文](result_zh.md)
 
 This page presents EasyWAM's benchmark results. The reported metric is task success rate in percent, and higher values are better. All results are reported with `state_position: sequence`, where state/proprio tokens are placed after the action tokens in the model sequence.

@@ -2,13 +2,13 @@
 
 [English](libero_plus.md) | [Benchmark 索引](README_zh.md) | [LIBERO 数据指南](../data/libero_zh.md) | [返回项目 README](../../../README_zh.md)
 
-LIBERO-Plus 是鲁棒性评测 benchmark。EasyWAM 直接评测在 LIBERO 上训练得到的 checkpoint，不需要单独的 LIBERO-Plus 训练 task。
+LIBERO-Plus 是鲁棒性评测 benchmark。OpenXAM 直接评测在 LIBERO 上训练得到的 checkpoint，不需要单独的 LIBERO-Plus 训练 task。
 
 ## 独立环境
 
 [LIBERO-Plus](https://github.com/sylvestf/LIBERO-plus) 与原版 LIBERO 使用相同的 `libero` Python 包名，因此请为 LIBERO-Plus 使用独立环境，或者在现有环境中替换原版包。
 
-安装 EasyWAM 后，按照上游说明安装 fork 及其额外的系统和 Python 依赖。典型流程如下：
+安装 OpenXAM 后，按照上游说明安装 fork 及其额外的系统和 Python 依赖。典型流程如下：
 
 ```bash
 sudo apt install libexpat1 libfontconfig1-dev libmagickwand-dev

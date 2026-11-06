@@ -4,9 +4,9 @@
 
 The evaluator implements the official Human300 multitask protocol: atomic_seen (18 tasks), composite_seen (16), and composite_unseen (16), with 50 episodes per task and the task-specific horizon from RoboCasa v1.0.1 or newer.
 
-## Install in the EasyWAM environment
+## Install in the OpenXAM environment
 
-Install robosuite master and the official RoboCasa checkout in the same Python environment as EasyWAM. robosuite is available on PyPI, but RoboCasa explicitly requires the newer master branch; pip can install that branch directly:
+Install robosuite master and the official RoboCasa checkout in the same Python environment as OpenXAM. robosuite is available on PyPI, but RoboCasa explicitly requires the newer master branch; pip can install that branch directly:
 
 ```bash
 pip install "robosuite @ git+https://github.com/ARISE-Initiative/robosuite.git@master"
@@ -20,7 +20,7 @@ python -m robocasa.scripts.setup_macros
 python -m robocasa.scripts.download_kitchen_assets
 ```
 
-The no-dependencies install is intentional: RoboCasa's package pins NumPy and LeRobot versions that conflict with EasyWAM's training environment. EasyWAM already includes imageio, imageio-ffmpeg, termcolor, Pillow, tqdm, NumPy, and PyYAML; robosuite installs OpenCV, pynput, SciPy, Numba, and its other base dependencies. The command above therefore lists only the remaining RoboCasa runtime packages. Keep EasyWAM's existing NumPy, MuJoCo, datasets, and LeRobot-compatible stack. Because both simulators share robosuite/MuJoCo dependencies, changing this environment can affect an existing LIBERO installation.
+The no-dependencies install is intentional: RoboCasa's package pins NumPy and LeRobot versions that conflict with OpenXAM's training environment. OpenXAM already includes imageio, imageio-ffmpeg, termcolor, Pillow, tqdm, NumPy, and PyYAML; robosuite installs OpenCV, pynput, SciPy, Numba, and its other base dependencies. The command above therefore lists only the remaining RoboCasa runtime packages. Keep OpenXAM's existing NumPy, MuJoCo, datasets, and LeRobot-compatible stack. Because both simulators share robosuite/MuJoCo dependencies, changing this environment can affect an existing LIBERO installation.
 
 ## Evaluate
 

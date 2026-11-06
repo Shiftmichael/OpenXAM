@@ -6,7 +6,7 @@ Wan2.2 支持 EasyWAM-Unified、MoT、MoT-Joint、MoT-IDM 和 Hidden，并提供
 
 ## 准备模型权重
 
-安装 EasyWAM 和 Hugging Face CLI 后，在项目根目录执行：
+安装 OpenXAM 和 Hugging Face CLI 后，在项目根目录执行：
 
 ```bash
 mkdir -p checkpoints

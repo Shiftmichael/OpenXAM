@@ -1,8 +1,8 @@
-# EasyWAM 配置指南
+# OpenXAM 配置指南
 
 [English](README.md) | [返回 README](../../../README_zh.md)
 
-EasyWAM 使用 [Hydra](https://hydra.cc/) 组合训练、数据、模型和任务配置。本目录说明各配置组的关系，以及如何在不复制整份 task 配置的情况下进行调整。
+OpenXAM 使用 [Hydra](https://hydra.cc/) 组合训练、数据、模型和任务配置。本目录说明各配置组的关系，以及如何在不复制整份 task 配置的情况下进行调整。
 
 ## 配置目录
 

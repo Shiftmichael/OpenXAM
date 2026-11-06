@@ -12,7 +12,7 @@ git -C third_party/RoboTwin checkout 96c1feab536306b50c26af200044fcdf126e8904
 git -C third_party/RoboTwin submodule update --init --recursive
 ```
 
-Use Python 3.10 and install the evaluation dependencies not provided by EasyWAM:
+Use Python 3.10 and install the evaluation dependencies not provided by OpenXAM:
 
 ```bash
 pip install scipy==1.10.1 transforms3d==0.4.2 sapien==3.0.0b1 \
@@ -78,4 +78,4 @@ python experiments/robotwin/run_robotwin_manager.py \
 
 The manager evaluates `demo_clean` and `demo_randomized` sequentially for each task. With no instruction override, it uses the split declared by each current RoboTwin task config. `EVALUATION.eval_num_episodes` controls the number of episodes per phase, while `EVALUATION.replan_steps` controls how many predicted actions are executed before replanning.
 
-With `MULTIRUN.gpu_ids=null`, the first `num_gpus` devices are used; otherwise the first `num_gpus` entries of the ordered `gpu_ids` candidate pool are selected. Model workers are distributed across the selected GPUs in round-robin order. Every worker loads EasyWAM independently; its rollout clients use isolated XPolicyLab sessions and share that worker's dynamic inference batcher. Increasing `workers_per_gpu` increases model memory use. Results remain under `evaluate_results/robotwin/<checkpoint-tag>/<timestamp>/`, including the upstream artifacts, per-phase result files, worker logs, `summary.json`, and `summary.csv`. Reusing the same `EVALUATION.output_dir` resumes phases whose result file is not yet valid.
+With `MULTIRUN.gpu_ids=null`, the first `num_gpus` devices are used; otherwise the first `num_gpus` entries of the ordered `gpu_ids` candidate pool are selected. Model workers are distributed across the selected GPUs in round-robin order. Every worker loads OpenXAM independently; its rollout clients use isolated XPolicyLab sessions and share that worker's dynamic inference batcher. Increasing `workers_per_gpu` increases model memory use. Results remain under `evaluate_results/robotwin/<checkpoint-tag>/<timestamp>/`, including the upstream artifacts, per-phase result files, worker logs, `summary.json`, and `summary.csv`. Reusing the same `EVALUATION.output_dir` resumes phases whose result file is not yet valid.

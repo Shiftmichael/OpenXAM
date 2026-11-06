@@ -4,9 +4,9 @@
 
 评测器实现官方 Human300 多任务协议：atomic_seen 18 个任务、composite_seen 16 个任务、composite_unseen 16 个任务；每个任务运行 50 个 episode，并读取 RoboCasa v1.0.1 或更新版本提供的任务 horizon。
 
-## 在 EasyWAM 环境中安装
+## 在 OpenXAM 环境中安装
 
-在 EasyWAM 当前 Python 环境安装 robosuite master 和官方 RoboCasa。robosuite 虽然已发布到 PyPI，但 RoboCasa 明确要求更新的 master 分支；可以直接通过 pip 安装该分支，不需要保留本地 robosuite clone：
+在 OpenXAM 当前 Python 环境安装 robosuite master 和官方 RoboCasa。robosuite 虽然已发布到 PyPI，但 RoboCasa 明确要求更新的 master 分支；可以直接通过 pip 安装该分支，不需要保留本地 robosuite clone：
 
 ```bash
 pip install "robosuite @ git+https://github.com/ARISE-Initiative/robosuite.git@master"
@@ -20,7 +20,7 @@ python -m robocasa.scripts.setup_macros
 python -m robocasa.scripts.download_kitchen_assets
 ```
 
-使用 no-dependencies 是有意的：RoboCasa 包内固定的 NumPy 和 LeRobot 版本会与 EasyWAM 训练环境冲突。EasyWAM 已包含 imageio、imageio-ffmpeg、termcolor、Pillow、tqdm、NumPy 和 PyYAML；robosuite 会安装 OpenCV、pynput、SciPy、Numba 等基础依赖，因此上面的命令只保留其余 RoboCasa 运行依赖。请保留 EasyWAM 当前的 NumPy、MuJoCo、datasets 和 LeRobot 兼容栈。同一环境里的 robosuite/MuJoCo 变化也可能影响已有 LIBERO 安装。
+使用 no-dependencies 是有意的：RoboCasa 包内固定的 NumPy 和 LeRobot 版本会与 OpenXAM 训练环境冲突。OpenXAM 已包含 imageio、imageio-ffmpeg、termcolor、Pillow、tqdm、NumPy 和 PyYAML；robosuite 会安装 OpenCV、pynput、SciPy、Numba 等基础依赖，因此上面的命令只保留其余 RoboCasa 运行依赖。请保留 OpenXAM 当前的 NumPy、MuJoCo、datasets 和 LeRobot 兼容栈。同一环境里的 robosuite/MuJoCo 变化也可能影响已有 LIBERO 安装。
 
 ## 运行评测
 

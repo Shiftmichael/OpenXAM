@@ -4,18 +4,18 @@
 
 ## Installation
 
-Install LIBERO in the same Python 3.10 environment as EasyWAM:
+Install LIBERO in the same Python 3.10 environment as OpenXAM:
 
 ```bash
 git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/LIBERO
 git -C third_party/LIBERO checkout 8f1084e3132a39270c3a13ebe37270a43ece2a01
 
-# Only packages needed by LIBERO evaluation that are not declared by EasyWAM.
+# Only packages needed by LIBERO evaluation that are not declared by OpenXAM.
 pip install mujoco==3.3.2 easydict==1.9 \
   robosuite==1.4.0 bddl==1.0.1 future==0.18.2 \
   cloudpickle==2.1.0 gym==0.25.2
 
-# LIBERO's setup.py has no runtime dependencies; avoid reinstalling EasyWAM packages.
+# LIBERO's setup.py has no runtime dependencies; avoid reinstalling OpenXAM packages.
 pip install --no-deps -e third_party/LIBERO
 ```
 
@@ -25,7 +25,7 @@ On the first import, LIBERO asks where to store demonstration datasets. Evaluati
 printf 'n\n' | python -c "import libero.libero"
 ```
 
-This creates `~/.libero/config.yaml`. If `LIBERO_CONFIG_PATH` is set, it is created under that directory instead; keep that environment variable set when running evaluation. The official requirements also list `robomimic` and `thop`, but EasyWAM does not use LIBERO's built-in policy training stack, so they are not needed here. EasyWAM already provides Hydra, NumPy, Weights & Biases, Transformers, Einops, PyTorch, Pillow, Termcolor, and tqdm.
+This creates `~/.libero/config.yaml`. If `LIBERO_CONFIG_PATH` is set, it is created under that directory instead; keep that environment variable set when running evaluation. The official requirements also list `robomimic` and `thop`, but OpenXAM does not use LIBERO's built-in policy training stack, so they are not needed here. OpenXAM already provides Hydra, NumPy, Weights & Biases, Transformers, Einops, PyTorch, Pillow, Termcolor, and tqdm.
 
 See the official [LIBERO repository](https://github.com/Lifelong-Robot-Learning/LIBERO) for the upstream source and dependency versions.
 

@@ -1,5 +1,7 @@
 # 🧭 什么样的 WAM 架构是我们需要的？
 
+> 这篇文章由 EasyWAM 团队撰写，这里保留作参考。
+
 我们在设计 World Action Model 时始终绕不开一个问题：**到底应该让视频和动作共享一个骨干，还是分开建模？在推理时间是否一定要生成未来预测？** 本文基于 EasyWAM 在 LIBERO / LIBERO-Plus 上对三种代表性架构的完整实验数据，把训练方式（全参数 / LoRA）和泛化能力（LIBERO-Plus）两条主线的结果放在一起对照着看，逐一给出数据和背后的架构原因。以下结果涵盖 Wan2.2-TI2V-5B 和 Cosmos-Predict2.5-2B；LIBERO 的 LoRA 结果来自 Wan2.2。
 
 ## 🧱 实验设置

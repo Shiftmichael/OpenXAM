@@ -2,7 +2,7 @@
 
 [中文](robodojo_zh.md) | [Data index](README.md) | [Back to project README](../../../README.md)
 
-This guide covers RoboDojo training-data preparation and training in EasyWAM.
+This guide covers RoboDojo training-data preparation and training in OpenXAM.
 
 ## Training Data
 

@@ -17,7 +17,7 @@ git -C third_party/RoboDojo submodule update --init --recursive
 (cd third_party/RoboDojo && bash scripts/robodojo.sh doctor)
 ```
 
-在 EasyWAM Python 环境启动 manager。仿真客户端默认使用单独的 `RoboDojo` conda 环境。首次运行时，manager 会将轻量的 `easywam_policy` 客户端适配文件复制到 RoboDojo checkout；若目标已有不同内容，则报错而不覆盖。
+在 OpenXAM Python 环境启动 manager。仿真客户端默认使用单独的 `RoboDojo` conda 环境。首次运行时，manager 会将轻量的 `easywam_policy` 客户端适配文件复制到 RoboDojo checkout；若目标已有不同内容，则报错而不覆盖。
 
 ## 评测
 
@@ -58,4 +58,4 @@ python experiments/robodojo/run_robodojo_manager.py \
   EVALUATION.eval_num_episodes=1 MULTIRUN.num_gpus=1
 ```
 
-官方 `_result.json` 和三相机视频保存在 `third_party/RoboDojo/eval_result/RoboDojo/`；EasyWAM 的日志、实际配置、`summary.json` 与 `summary.csv` 保存在 `evaluate_results/robodojo/<task>/<timestamp>/`。汇总中的 `success_rate` 和 `score` 使用与官方报告一致的百分比（0–100）。完整正式测评还会更新 RoboDojo 的 `_summary.md`。复用 `EVALUATION.output_dir=<existing-directory>` 即可跳过已有完整结果并续评。只有当前 Python 环境已安装 RoboDojo 和 Isaac Sim 时才设置 `EVALUATION.sim_env=null`。
+官方 `_result.json` 和三相机视频保存在 `third_party/RoboDojo/eval_result/RoboDojo/`；OpenXAM 的日志、实际配置、`summary.json` 与 `summary.csv` 保存在 `evaluate_results/robodojo/<task>/<timestamp>/`。汇总中的 `success_rate` 和 `score` 使用与官方报告一致的百分比（0–100）。完整正式测评还会更新 RoboDojo 的 `_summary.md`。复用 `EVALUATION.output_dir=<existing-directory>` 即可跳过已有完整结果并续评。只有当前 Python 环境已安装 RoboDojo 和 Isaac Sim 时才设置 `EVALUATION.sim_env=null`。

@@ -153,4 +153,4 @@ PYTHON
 
 训练输入 `video` 为 `[B,3,T,H,W]`，取值范围 `[-1,1]`，`T >= 2`，图像高宽能被 16 整除。训练使用首尾帧、`context`/`context_mask`（或 `prompt`），以及可选的 `[B,T]` `image_is_pad`；被标记为 padding 的目标帧不贡献损失。推理接收单张图像，返回当前图像和未来端点（`num_frames=2`），要求 `guidance_scale=1`，不使用负向条件。
 
-Core 检查点保存 DiT 权重、backbone/variant 信息、步数和可选的优化器状态。恢复前使用相同的预训练 VAE 和文本配置创建 Core；这是视觉检查点，仿真评测使用 EasyWAM 策略检查点。
+Core 检查点保存 DiT 权重、backbone/variant 信息、步数和可选的优化器状态。恢复前使用相同的预训练 VAE 和文本配置创建 Core；这是视觉检查点，仿真评测使用 OpenXAM 策略检查点。

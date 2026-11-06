@@ -4,18 +4,18 @@
 
 ## 安装
 
-在 EasyWAM 所在的 Python 3.10 环境中安装 LIBERO：
+在 OpenXAM 所在的 Python 3.10 环境中安装 LIBERO：
 
 ```bash
 git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/LIBERO
 git -C third_party/LIBERO checkout 8f1084e3132a39270c3a13ebe37270a43ece2a01
 
-# 这里只安装 LIBERO 评测需要、但 EasyWAM 未声明的包。
+# 这里只安装 LIBERO 评测需要、但 OpenXAM 未声明的包。
 pip install mujoco==3.3.2 easydict==1.9 \
   robosuite==1.4.0 bddl==1.0.1 future==0.18.2 \
   cloudpickle==2.1.0 gym==0.25.2
 
-# LIBERO 的 setup.py 没有运行时依赖，避免重复安装或降级 EasyWAM 的包。
+# LIBERO 的 setup.py 没有运行时依赖，避免重复安装或降级 OpenXAM 的包。
 pip install --no-deps -e third_party/LIBERO
 ```
 
@@ -25,7 +25,7 @@ pip install --no-deps -e third_party/LIBERO
 printf 'n\n' | python -c "import libero.libero"
 ```
 
-这会生成 `~/.libero/config.yaml`。如果设置了 `LIBERO_CONFIG_PATH`，配置会写到该目录；运行评测时需要保持这个环境变量一致。官方依赖中的 `robomimic` 和 `thop` 只服务于 LIBERO 自带的策略训练，EasyWAM 评测不会使用，因此不安装。Hydra、NumPy、Weights & Biases、Transformers、Einops、PyTorch、Pillow、Termcolor 和 tqdm 已由 EasyWAM 提供。
+这会生成 `~/.libero/config.yaml`。如果设置了 `LIBERO_CONFIG_PATH`，配置会写到该目录；运行评测时需要保持这个环境变量一致。官方依赖中的 `robomimic` 和 `thop` 只服务于 LIBERO 自带的策略训练，OpenXAM 评测不会使用，因此不安装。Hydra、NumPy、Weights & Biases、Transformers、Einops、PyTorch、Pillow、Termcolor 和 tqdm 已由 OpenXAM 提供。
 
 上游源码及版本清单见官方 [LIBERO 仓库](https://github.com/Lifelong-Robot-Learning/LIBERO)。
 

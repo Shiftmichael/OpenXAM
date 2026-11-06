@@ -2,7 +2,7 @@
 
 [English](robodojo.md) | [数据索引](README_zh.md) | [返回项目 README](../../../README_zh.md)
 
-本文介绍 EasyWAM 中 RoboDojo 的训练数据准备与训练流程。
+本文介绍 OpenXAM 中 RoboDojo 的训练数据准备与训练流程。
 
 ## 训练数据
 

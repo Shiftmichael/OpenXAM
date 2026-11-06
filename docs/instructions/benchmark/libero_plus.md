@@ -2,13 +2,13 @@
 
 [中文](libero_plus_zh.md) | [Benchmark index](README.md) | [LIBERO data guide](../data/libero.md) | [Back to project README](../../../README.md)
 
-LIBERO-Plus is a robustness evaluation benchmark. EasyWAM evaluates a checkpoint trained on LIBERO; there is no separate LIBERO-Plus training task.
+LIBERO-Plus is a robustness evaluation benchmark. OpenXAM evaluates a checkpoint trained on LIBERO; there is no separate LIBERO-Plus training task.
 
 ## Dedicated Environment
 
 [LIBERO-Plus](https://github.com/sylvestf/LIBERO-plus) and vanilla LIBERO install under the same `libero` Python package name. Use a dedicated environment for LIBERO-Plus evaluation, or replace the vanilla package in an existing environment.
 
-After installing EasyWAM, install the fork and its additional system/Python dependencies according to the upstream instructions. A typical setup is:
+After installing OpenXAM, install the fork and its additional system/Python dependencies according to the upstream instructions. A typical setup is:
 
 ```bash
 sudo apt install libexpat1 libfontconfig1-dev libmagickwand-dev
