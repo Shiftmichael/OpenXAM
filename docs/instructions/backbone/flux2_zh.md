@@ -117,10 +117,10 @@ import torch
 from hydra import compose, initialize_config_dir
 from torch.utils.data import DataLoader
 
-from model.backbone.flux2 import Flux2Core
-from runtime import build_datasets
-from utils import misc
-from utils.config_resolvers import register_default_resolvers
+from openxam.model.backbone.flux2 import Flux2Core
+from openxam.runtime import build_datasets
+from openxam.utils import misc
+from openxam.utils.config_resolvers import register_default_resolvers
 
 register_default_resolvers()
 with initialize_config_dir(config_dir=str(Path("configs").resolve()), version_base="1.3"):

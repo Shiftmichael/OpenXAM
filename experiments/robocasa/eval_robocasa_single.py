@@ -26,17 +26,17 @@ for path in (PROJECT_ROOT, SRC_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from data.lerobot.processors.wam_processor import WAMProcessor  # noqa: E402
-from data.lerobot.prompts import DEFAULT_PROMPT  # noqa: E402
-from data.lerobot.utils.normalizer import load_dataset_stats_from_json  # noqa: E402
+from openxam.data.lerobot.processors.wam_processor import WAMProcessor  # noqa: E402
+from openxam.data.lerobot.prompts import DEFAULT_PROMPT  # noqa: E402
+from openxam.data.lerobot.utils.normalizer import load_dataset_stats_from_json  # noqa: E402
 from experiments.image_utils import rgb_to_tensor
 from experiments.prompt_context_cache import PromptContextCache  # noqa: E402
 from experiments.robocasa.env_process import CAMERA_KEYS, RoboCasaEnvProcess  # noqa: E402
-from model.helpers.inference import (  # noqa: E402
+from openxam.model.helpers.inference import (  # noqa: E402
     configure_inference_compile_from_config,
     configure_model_execution,
 )
-from utils.pytorch_utils import set_global_seed  # noqa: E402
+from openxam.utils.pytorch_utils import set_global_seed  # noqa: E402
 
 for name, resolver in (
     ("eval", eval),

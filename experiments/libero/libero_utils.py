@@ -8,7 +8,7 @@ import imageio
 from PIL import Image, ImageDraw
 import numpy as np
 from libero.libero import get_libero_path
-from utils.video_io import save_mp4
+from openxam.utils.video_io import save_mp4
 from experiments.libero.env_process import LiberoEnvProcess
 from experiments.libero.task_language import strip_libero_plus_metadata
 

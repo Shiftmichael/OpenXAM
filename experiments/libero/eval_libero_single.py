@@ -36,14 +36,14 @@ from experiments.libero.libero_utils import (
     save_prediction_video,
     save_rollout_video,
 )
-from data.lerobot.processors.wam_processor import WAMProcessor
-from data.lerobot.utils.normalizer import load_dataset_stats_from_json
-from utils.pytorch_utils import set_global_seed
-from data.lerobot.prompts import DEFAULT_PROMPT
+from openxam.data.lerobot.processors.wam_processor import WAMProcessor
+from openxam.data.lerobot.utils.normalizer import load_dataset_stats_from_json
+from openxam.utils.pytorch_utils import set_global_seed
+from openxam.data.lerobot.prompts import DEFAULT_PROMPT
 from libero.libero import benchmark
 from experiments.libero.action_ensembler import ActionEnsembler
 from experiments.prompt_context_cache import PromptContextCache
-from model.helpers.inference import configure_inference_compile_from_config, configure_model_execution
+from openxam.model.helpers.inference import configure_inference_compile_from_config, configure_model_execution
 
 OmegaConf.register_new_resolver("eval", eval)
 OmegaConf.register_new_resolver("max", lambda x: max(x))

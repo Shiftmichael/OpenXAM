@@ -12,17 +12,17 @@ import torch.distributed as dist
 from omegaconf import DictConfig, ListConfig
 from tqdm import tqdm
 
-from data.lerobot.robot_video_dataset import DEFAULT_PROMPT
-from data.lerobot.lerobot.datasets.utils import load_info
-from data.lerobot.text_embedding_cache import (
+from openxam.data.lerobot.robot_video_dataset import DEFAULT_PROMPT
+from openxam.data.lerobot.lerobot.datasets.utils import load_info
+from openxam.data.lerobot.text_embedding_cache import (
     build_text_embedding_payload,
     prompt_hash,
     text_embedding_cache_filename,
 )
-from model.backbone import load_backbone_text_encoder, normalize_backbone_config
-from utils.pytorch_utils import mixed_precision_to_dtype
-from utils.config_resolvers import register_default_resolvers
-from utils.logging_config import get_logger, setup_logging
+from openxam.model.backbone import load_backbone_text_encoder, normalize_backbone_config
+from openxam.utils.pytorch_utils import mixed_precision_to_dtype
+from openxam.utils.config_resolvers import register_default_resolvers
+from openxam.utils.logging_config import get_logger, setup_logging
 
 register_default_resolvers()
 logger = get_logger(__name__)

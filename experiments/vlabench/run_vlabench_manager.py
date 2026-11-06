@@ -22,7 +22,7 @@ from omegaconf import OmegaConf
 from experiments.task_dispatch import build_worker_slots
 from experiments.vlabench.registry import build_jobs, digest, file_digest, upstream_identity
 from experiments.vlabench.result_utils import is_complete, read_result, result_path, summarize, write_json_atomic
-from utils.config_resolvers import register_default_resolvers
+from openxam.utils.config_resolvers import register_default_resolvers
 from experiments.vlabench.contract import CONTRACT_VERSION
 
 register_default_resolvers()

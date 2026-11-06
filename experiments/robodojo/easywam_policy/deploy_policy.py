@@ -25,16 +25,16 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from data.lerobot.processors.wam_processor import WAMProcessor
-from data.lerobot.robot_video_dataset import DEFAULT_PROMPT
-from data.lerobot.utils.normalizer import load_dataset_stats_from_json
+from openxam.data.lerobot.processors.wam_processor import WAMProcessor
+from openxam.data.lerobot.robot_video_dataset import DEFAULT_PROMPT
+from openxam.data.lerobot.utils.normalizer import load_dataset_stats_from_json
 from experiments.batched_inference import DynamicInferenceBatcher
 from experiments.image_utils import (
     concatenate_head_and_wrists,
     resize_rgb as _resize_rgb,
     rgb_to_tensor,
 )
-from model.helpers.inference import configure_inference_compile, configure_model_execution
+from openxam.model.helpers.inference import configure_inference_compile, configure_model_execution
 
 logger = logging.getLogger(__name__)
 

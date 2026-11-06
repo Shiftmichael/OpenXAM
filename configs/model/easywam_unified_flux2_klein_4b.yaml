@@ -2,7 +2,7 @@ defaults:
   - backbone: flux2_klein_4b
   - _self_
 
-_target_: runtime.create_easywam_unified
+_target_: openxam.runtime.create_easywam_unified
 attention_backend: ${model.backbone.attention_backend}
 action_dim: ${data.train.processor.action_output_dim}
 state_dim: ${data.train.processor.proprio_output_dim}

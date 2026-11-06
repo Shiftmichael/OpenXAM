@@ -9,12 +9,12 @@ import numpy as np
 import torch
 from hydra.utils import instantiate
 
-from data.lerobot.prompts import DEFAULT_PROMPT
-from data.lerobot.utils.normalizer import load_dataset_stats_from_json
+from openxam.data.lerobot.prompts import DEFAULT_PROMPT
+from openxam.data.lerobot.utils.normalizer import load_dataset_stats_from_json
 from experiments.batched_inference import DynamicInferenceBatcher
 from experiments.vlabench.checkpoint import load_evaluation_checkpoint
-from model.helpers.inference import configure_inference_compile_from_config, configure_model_execution
-from utils.pytorch_utils import mixed_precision_to_dtype, set_global_seed
+from openxam.model.helpers.inference import configure_inference_compile_from_config, configure_model_execution
+from openxam.utils.pytorch_utils import mixed_precision_to_dtype, set_global_seed
 from experiments.vlabench.contract import image_tensor
 
 

@@ -3,7 +3,7 @@ defaults:
   - lora: video_dit
   - _self_
 
-_target_: runtime.create_easywam_hidden
+_target_: openxam.runtime.create_easywam_hidden
 attention_backend: ${model.backbone.attention_backend}
 action_dim: ${data.train.processor.action_output_dim}
 state_dim: ${data.train.processor.proprio_output_dim}

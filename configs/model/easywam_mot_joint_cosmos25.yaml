@@ -2,7 +2,7 @@ defaults:
   - backbone: cosmos25
   - _self_
 
-_target_: runtime.create_easywam_mot_joint
+_target_: openxam.runtime.create_easywam_mot_joint
 attention_backend: ${model.backbone.attention_backend}
 state_dim: ${data.train.processor.proprio_output_dim}
 state_position: sequence

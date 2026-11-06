@@ -1,6 +1,6 @@
 # LeRobot v3.0 dataset; 10-D absolute base-frame EEF.
 train:
-  _target_: data.lerobot.robot_video_dataset.RobotVideoDataset
+  _target_: openxam.data.lerobot.robot_video_dataset.RobotVideoDataset
   dataset_dirs:
   - ./data/vlabench-lerobot-v3.0
   shape_meta:
@@ -53,7 +53,7 @@ train:
   skip_padding_as_possible: false
   concat_multi_camera: robotwin
   processor:
-    _target_: data.lerobot.processors.wam_processor.WAMProcessor
+    _target_: openxam.data.lerobot.processors.wam_processor.WAMProcessor
     shape_meta: ${data.train.shape_meta}
     num_obs_steps: ${data.train.num_frames}
     num_output_cameras: 3
@@ -66,11 +66,11 @@ train:
     norm_default_mode: min/max
     norm_exception_mode: null
     action_state_merger:
-      _target_: data.lerobot.transforms.action_state_merger.ConcatLeftAlign
+      _target_: openxam.data.lerobot.transforms.action_state_merger.ConcatLeftAlign
     train_transforms:
       image:
       - &id001
-        _target_: data.lerobot.transforms.image.ToTensor
+        _target_: openxam.data.lerobot.transforms.image.ToTensor
       - &id002
         _target_: torchvision.transforms.Resize
         size:
@@ -83,7 +83,7 @@ train:
         hue: 0.0
       wrist_image:
       - &id003
-        _target_: data.lerobot.transforms.image.ToTensor
+        _target_: openxam.data.lerobot.transforms.image.ToTensor
       - &id004
         _target_: torchvision.transforms.Resize
         size:
@@ -96,7 +96,7 @@ train:
         hue: 0.0
       second_image:
       - &id005
-        _target_: data.lerobot.transforms.image.ToTensor
+        _target_: openxam.data.lerobot.transforms.image.ToTensor
       - &id006
         _target_: torchvision.transforms.Resize
         size:

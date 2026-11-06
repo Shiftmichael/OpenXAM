@@ -6,13 +6,13 @@ from pathlib import Path
 import torch
 from omegaconf import OmegaConf
 
-from model.backbone import (
+from openxam.model.backbone import (
     initialize_action_from_backbone,
     load_backbone_dit,
     normalize_backbone_config,
 )
-from model.backbone.registry import BACKBONE_MODULES
-from model.component.action_dit import ActionDiT
+from openxam.model.backbone.registry import BACKBONE_MODULES
+from openxam.model.component.action_dit import ActionDiT
 
 
 def _parse_dtype(name):

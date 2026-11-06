@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "easywam"
+name = "openxam"
 version = "0.1.0"
-description = "EasyWAM: An Efficient and Easy-to-Use Codebase for World Action Model"
+description = "OpenXAM: an open platform for X-Action Models, covering VLA and WAM at lab scale"
 requires-python = ">=3.10"
 dependencies = [
   "accelerate==1.5.2",
@@ -44,12 +44,9 @@ dependencies = [
   "wandb==0.23.1",
 ]
 
-[tool.setuptools]
-py-modules = ["runtime", "trainer"]
-
 [tool.setuptools.package-dir]
 "" = "src"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["data*", "model*", "utils*"]
+include = ["openxam*"]

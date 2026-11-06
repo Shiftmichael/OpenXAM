@@ -1,8 +1,8 @@
 import hydra
 from omegaconf import DictConfig
 
-from runtime import run_training
-from utils.config_resolvers import register_default_resolvers
+from openxam.runtime import run_training
+from openxam.utils.config_resolvers import register_default_resolvers
 
 register_default_resolvers()
 

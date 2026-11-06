@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 import torch
 
-from model.component.lora import has_lora, iter_lora_layers, set_video_dit_lora_trainable
+from openxam.model.component.lora import has_lora, iter_lora_layers, set_video_dit_lora_trainable
 
 
 def _check_state(expected, actual, label):
