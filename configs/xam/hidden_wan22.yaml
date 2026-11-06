@@ -1,0 +1,33 @@
+# EasyWAM-Hidden: action reads features of a video tower layer.
+towers:
+  video:  {kind: wan22, train: full, context: [text]}
+  action:
+    kind: action_dit
+    hidden_dim: 1024
+    init: from_video
+    train: full
+    context: [{from: video, layer: 17, grad: false}]
+
+streams:
+  text:   {encoder: umt5}
+  obs:    {tower: video,  data: first_frame}
+  future: {tower: video,  data: future_frames}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  obs:    [obs]
+  future: [obs, future]
+  action: [action, state]
+  state:  [action, state]
+
+train:
+  - {name: joint, noisy: [future, action]}
+
+infer:
+  act:
+    - {denoise: [action], hold: [future], steps: 10}
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: future, type: flow}

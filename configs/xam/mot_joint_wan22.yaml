@@ -1,0 +1,28 @@
+# EasyWAM-MoT-Joint: action reads future video, both are denoised together.
+towers:
+  video:  {kind: wan22, train: full, context: [text]}
+  action: {kind: action_dit, hidden_dim: 1024, init: from_video, train: full, context: [text]}
+
+streams:
+  text:   {encoder: umt5}
+  obs:    {tower: video,  data: first_frame}
+  future: {tower: video,  data: future_frames}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  obs:    [obs]
+  future: [obs, future]
+  action: [obs, future, action, state]
+  state:  [obs, future, action, state]
+
+train:
+  - {name: joint, noisy: [future, action]}
+
+infer:
+  act_and_imagine:
+    - {denoise: [future, action], steps: 10}
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: future, type: flow}

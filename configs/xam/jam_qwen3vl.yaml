@@ -1,0 +1,25 @@
+# JAM: predict future features in training, drop the head afterwards.
+towers:
+  vlm:    {kind: qwen3_vl, train: full}
+  action: {kind: action_dit, hidden_dim: 1024, init: random, train: full}
+
+streams:
+  prompt: {tower: vlm,    data: [first_frame, instruction]}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  prompt: [{from: prompt, pattern: causal}]
+  action: [prompt, action, state]
+  state:  [prompt, action, state]
+
+train:
+  - {name: act, noisy: [action]}
+
+infer:
+  act:
+    - {denoise: [action], steps: 10}
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: prompt, type: feature, encoder: dinov2, target: future_frames, training_only: true}

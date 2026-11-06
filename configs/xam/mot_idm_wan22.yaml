@@ -1,0 +1,33 @@
+# EasyWAM-MoT-IDM: generate video first, then act on a clean copy of it.
+towers:
+  video:  {kind: wan22, train: full, context: [text]}
+  action: {kind: action_dit, hidden_dim: 1024, init: from_video, train: full, context: [text]}
+
+streams:
+  text:     {encoder: umt5}
+  obs:      {tower: video,  data: first_frame}
+  future:   {tower: video,  data: future_frames}
+  obs_c:    {tower: video,  data: first_frame}
+  future_c: {tower: video,  data: future_frames}
+  action:   {tower: action, data: action}
+  state:    {tower: action, data: proprio}
+
+reads:
+  obs:      [obs]
+  future:   [obs, future]
+  obs_c:    [obs_c]
+  future_c: [obs_c, future_c]
+  action:   [obs_c, future_c, action, state]
+  state:    [obs_c, future_c, action, state]
+
+train:
+  - {name: teacher_forcing, noisy: [future, action], sometimes_noisy: {future_c: 0.5}}
+
+infer:
+  act_and_imagine:
+    - {denoise: [future], absent: [obs_c, future_c, action, state], steps: 10}
+    - {denoise: [action], absent: [obs, future], use: {future_c: future}, steps: 10}
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: future, type: flow}

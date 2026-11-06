@@ -1,0 +1,24 @@
+# A pi0-style VLA: an action tower reading a frozen VLM.
+towers:
+  vlm:    {kind: qwen3_vl, train: frozen}
+  action: {kind: action_dit, hidden_dim: 1024, init: random, train: full}
+
+streams:
+  prompt: {tower: vlm,    data: [first_frame, instruction]}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  prompt: [{from: prompt, pattern: causal}]
+  action: [prompt, action, state]
+  state:  [prompt, action, state]
+
+train:
+  - {name: act, noisy: [action]}
+
+infer:
+  act:
+    - {denoise: [action], steps: 10}
+
+losses:
+  - {stream: action, type: flow}

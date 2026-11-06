@@ -1,0 +1,42 @@
+# Joint training mixed with predicting the future from given actions.
+towers:
+  video:  {kind: wan22, train: full, context: [text]}
+  action: {kind: action_dit, hidden_dim: 1024, init: from_video, train: full, context: [text]}
+
+streams:
+  text:   {encoder: umt5}
+  obs:    {tower: video,  data: first_frame}
+  future: {tower: video,  data: future_frames}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  obs:    [obs]
+  future: [obs, future]
+  action: [obs, future, action, state]
+  state:  [obs, future, action, state]
+
+train:
+  - {name: joint, weight: 0.5, noisy: [future, action]}
+  - name: predict
+    weight: 0.5
+    noisy: [future]
+    reads:
+      future: [obs, future, action, state]
+      action: [obs, action, state]
+      state:  [obs, action, state]
+
+infer:
+  act_and_imagine:
+    - {denoise: [future, action], steps: 10}
+  predict:
+    - denoise: [future]
+      steps: 10
+      reads:
+        future: [obs, future, action, state]
+        action: [obs, action, state]
+        state:  [obs, action, state]
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: future, type: flow}

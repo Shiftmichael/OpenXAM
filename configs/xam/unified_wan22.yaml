@@ -1,0 +1,27 @@
+# EasyWAM-Unified: video and action share one tower.
+towers:
+  video: {kind: wan22, train: full, context: [text]}
+
+streams:
+  text:   {encoder: umt5}
+  obs:    {tower: video, data: first_frame}
+  future: {tower: video, data: future_frames}
+  action: {tower: video, data: action}
+  state:  {tower: video, data: proprio}
+
+reads:
+  obs:    [obs, state]
+  future: [obs, future, action, state]
+  action: [obs, future, action, state]
+  state:  [obs, future, action, state]
+
+train:
+  - {name: joint, noisy: [future, action], tie: [[future, action]]}
+
+infer:
+  act_and_imagine:
+    - {denoise: [future, action], tie: [[future, action]], steps: 10}
+
+losses:
+  - {stream: action, type: flow}
+  - {stream: future, type: flow}

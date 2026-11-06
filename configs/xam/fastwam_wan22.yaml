@@ -1,0 +1,28 @@
+# FastWAM on Wan2.2: action reads the current frame only.
+towers:
+  video:  {kind: wan22, train: full, context: [text]}
+  action: {kind: action_dit, hidden_dim: 1024, init: from_video, train: full, context: [text]}
+
+streams:
+  text:   {encoder: umt5}
+  obs:    {tower: video,  data: first_frame}
+  future: {tower: video,  data: future_frames}
+  action: {tower: action, data: action}
+  state:  {tower: action, data: proprio}
+
+reads:
+  obs:    [obs]
+  future: [obs, future]
+  action: [obs, action, state]
+  state:  [obs, action, state]
+
+train:
+  - {name: joint, noisy: [future, action]}
+
+infer:
+  act:
+    - {denoise: [action], absent: [future], steps: 10}
+
+losses:
+  - {stream: action, type: flow, weight: 1.0}
+  - {stream: future, type: flow, weight: 1.0}
