@@ -1,6 +1,6 @@
 # OpenXAM 多塔核心：接口草案
 
-状态：配置检查和编译已实现，MoT 的训练和动作推理已经跑在这套核心上。其余结构还在迁移。
+状态：配置检查和编译已实现。MoT 已经完整跑在这套核心上，能走训练器，只差真实权重和 GPU 上的验证。其余结构还在迁移。
 
 ## 1. 要解决什么
 
@@ -53,6 +53,8 @@ train:
 infer:
   act:
     - {denoise: [action], absent: [future], steps: 10}
+  act_and_imagine:
+    - {denoise: [future, action], steps: 10}
 
 losses:
   - {stream: action, type: flow, weight: 1.0}
@@ -65,7 +67,7 @@ losses:
 - **`streams`**：`tower` 说明这一路走哪座塔。没有 `tower` 的路（这里的 `text`）只是一段固定序列。
 - **`reads`**：一行一个读者。这里动作读当前画面，不读未来视频，这正是 FastWAM 的定义。未来视频不读动作。
 - **`train`**：一种训练方式一项。`noisy` 里的路加噪，其余都是干净的。每路的噪声水平各自抽取，要共用就写 `tie`。
-- **`infer`**：一个命名的推理程序，由一个或几个阶段组成。`act` 这个程序里，未来视频不存在，只去噪动作。
+- **`infer`**：命名的推理程序，每个由一个或几个阶段组成。`act` 里未来视频不存在，只去噪动作；`act_and_imagine` 同时生成未来视频，用来看模型想象了什么。
 - **`losses`**：`flow` 是现在的流匹配损失。
 
 每路的噪声分布继续用现有的调度器（`video_scheduler`、`action_scheduler`），这里没写出来。
@@ -452,9 +454,13 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 
 ### 模型入口
 
-`XAMModel` 现在提供 `training_loss` 和 `infer_action_batch`，和旧类接口一致。`infer_joint_batch`、`save_checkpoint`、`load_checkpoint`、`.dit` 和新方法 `predict_future` 还要补，补齐后训练器和评测才能直接用它。
+`XAMModel` 提供和 EasyWAM 类相同的入口：`training_loss`、`infer_action_batch`、`infer_joint_batch`、`infer_action`、`infer_joint`、`infer`、`encode_prompt`、`save_checkpoint`、`load_checkpoint`，属性名（`dit`、`video_dit`、`state_encoder`、`vae` 等）也相同。所以训练器和评测不用改。
 
-测试时切断某一路读取，只要在阶段里写 `cut: ["action<-future"]`。
+权重格式也不变：新旧两边存的权重可以互相读。
+
+配置里写 `_target_: openxam.runtime.create_xam` 和 `spec: fastwam_wan22`，就会用新核心。现成的例子是 `task=libero_xam_fastwam_wan22`。
+
+测试时切断某一路读取，只要在阶段里写 `cut: ["action<-future"]`。给定动作预测未来的入口 `predict_future` 还没加。
 
 ## 6. 配置检查
 
@@ -504,12 +510,16 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 
 - **结构**：读取表编译出的注意力结构，和 EasyWAM 的 MoT、MoT-Joint、IDM、Unified 逐段一致，也和 NUS OpenWAM 的四种可见方式逐位一致（`tests/test_core_plan.py`）。这里的现有逻辑是照源码重新写的，这样测试不需要 PyTorch。
 - **配置检查**：第 6 节的检查都有测试，每一项都用写错的配置确认能报错（`tests/test_core_spec.py`）。
-- **MoT 数值**：用很小的随机塔，把同一批模块接到旧类和 `XAMModel` 上，loss、全部梯度和采样出的动作都逐位相同，打开梯度检查点时也相同（`tests/test_parity_mot.py`）。把读取表改掉时，结果确实会变，所以这个比较有效。
+- **MoT 数值**：用很小的随机塔，把同一批模块接到旧类和 `XAMModel` 上，loss、全部梯度、采样出的动作和生成的视频都逐位相同，打开梯度检查点或交叉注意力缓存时也相同（`tests/test_parity_mot.py`）。把读取表改掉时，结果确实会变，所以这个比较有效。
+- **权重**：新旧两边存的权重互相读取后，动作逐位相同；读到别的结构的权重会报错。
+- **训练器**：真实的 `EasyWAMTrainer` 在 CPU 上能训练新模型、存权重、中断后接着训（`tests/test_trainer_smoke.py`）。接着训时权重、步数和优化器都恢复了。之后的步骤和不中断的训练不逐位相同，旧类也一样。
+- **Hydra 配置**：`task=libero_xam_fastwam_wan22` 能组合出来，除模型入口外和旧任务相同（`tests/test_hydra_configs.py`）。
 - **`grad: false`**：断开后输出不变，视频塔收不到动作损失的梯度。
 
 **还没有验证：**
 
-- 真实权重和 GPU 上的结果。上面都是 CPU 上的小模型。
+- 真实权重和 GPU 上的结果。上面都是 CPU 上的小模型，真实的评测流程也没走过。
+- LoRA 的存取。用来测试的环境没有装 `peft`。
 - Cosmos 塔。`towers/dit.py` 保留了它的分支，但还没有测试。
-- MoT 以外的结构，`infer_joint_batch`，以及文字编码和存取权重。
+- MoT 以外的结构。
 - VLM 塔的实现细节：K、V 头数和动作塔的对齐，位置编码怎么对齐，Qwen3-VL 把视觉特征注入前几层的做法。

@@ -75,6 +75,17 @@ class Tower(nn.Module):
         """Turn the inputs of one inference step into tokens."""
         raise NotImplementedError
 
+    def after_step(self, stream: str, latent: Tensor, request: Mapping[str, Any]) -> Tensor:
+        """Adjust a stream after a solver step. By default nothing changes."""
+        return latent
+
+    def encode_request(self, request: dict[str, Any]) -> None:
+        """Add what this tower needs to an inference request. By default nothing."""
+
+    def project_context(self, context: Tensor) -> Optional[Tensor]:
+        """The context as this tower reads it. A tower without cross-attention returns None."""
+        return None
+
 
 @dataclass
 class Context:

@@ -22,6 +22,8 @@ train:
 infer:
   act:
     - {denoise: [action], absent: [future], steps: 10}
+  act_and_imagine:
+    - {denoise: [future, action], steps: 10}
 
 losses:
   - {stream: action, type: flow, weight: 1.0}

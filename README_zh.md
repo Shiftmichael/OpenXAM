@@ -6,7 +6,7 @@
 
 视觉语言动作模型（VLA）和世界动作模型（WAM）的主要区别，是什么信息进入了动作生成器：VLM 的知识、视频模型对动态的理解、写下来的计划、光流、触觉。OpenXAM 把这个 X 当成一项设置。目标是一套代码，让实验室用不多的 GPU，从公开的预训练权重出发，完成这些模型的微调、推理和评测。
 
-> **状态：早期。** 代码从 [EasyWAM](https://github.com/OpenMOSS/EasyWAM) 的 `d7c7c5a` 提交出发。下面列的模型都来自 EasyWAM，在本仓库里还没有重跑过。让 X 可以配置的多塔核心正在 `src/openxam/core` 里搭建：配置已经能编译，MoT 的训练和动作采样在小的随机模型上和 EasyWAM-MoT 完全一致。训练和评测脚本目前还在用 EasyWAM 的类。
+> **状态：早期。** 代码从 [EasyWAM](https://github.com/OpenMOSS/EasyWAM) 的 `d7c7c5a` 提交出发。下面列的模型都来自 EasyWAM，在本仓库里还没有重跑过。让 X 可以配置的多塔核心正在 `src/openxam/core` 里搭建：配置已经能编译，MoT 在小的随机模型上和 EasyWAM-MoT 完全一致，权重和训练器也接上了，用 `task=libero_xam_fastwam_wan22` 运行。真实权重和 GPU 还没试过，其余结构还在用 EasyWAM 的类。
 
 ## 设计
 
@@ -73,7 +73,9 @@ task 和类名暂时保留 `easywam` 前缀，等新的核心替换它们时再�
 python tests/test_package_imports.py
 python tests/test_core_spec.py
 python tests/test_core_plan.py
-python tests/test_parity_mot.py   # 需要 PyTorch
+python tests/test_parity_mot.py     # 需要 PyTorch
+python tests/test_trainer_smoke.py  # 需要 PyTorch 和 Accelerate
+python tests/test_hydra_configs.py  # 需要 Hydra
 ```
 
 ## 文档

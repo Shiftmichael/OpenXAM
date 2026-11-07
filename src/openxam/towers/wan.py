@@ -10,7 +10,7 @@ from torch import Tensor, nn
 
 from openxam.core.plan import Plan
 from openxam.core.spec import NOISY
-from openxam.model.helpers.batching import encode_image_batch
+from openxam.model.helpers.batching import encode_image_batch, randn_per_sample
 
 from .base import Context, TowerState, flow_weighted_mean, shared_timestep
 from .dit import DiTTower
@@ -106,7 +106,7 @@ class WanTower(DiTTower):
             timestep=timestep,
             context=context.tokens,
             context_mask=context.mask,
-            fuse_vae_embedding_in_latents=True,
+            fuse_vae_embedding_in_latents=bool(self.dit.fuse_vae_embedding_in_latents),
             context_is_projected=context.projected,
             cross_kv_cache=context.kv_cache,
         )
@@ -115,8 +115,7 @@ class WanTower(DiTTower):
         return TowerState(pre["tokens"], {CURRENT_FRAME: frame, FUTURE_FRAMES: total - frame}, frame, pre)
 
     def embed(self, batch: Mapping[str, Any], context: Context) -> TowerState:
-        state = self._pre(batch["noisy"], batch["t"], context)
-        return state
+        return self._pre(batch["noisy"], batch["t"], context)
 
     def readout(self, stream: str, x: Tensor, state: TowerState) -> Tensor:
         if stream != FUTURE_FRAMES:
@@ -144,7 +143,26 @@ class WanTower(DiTTower):
         latents: Mapping[str, Tensor],
         timesteps: Mapping[str, Tensor],
     ) -> TowerState:
-        first = request["first_frame_latents"]
+        context = request["context"]["video"]
         if FUTURE_FRAMES in latents:
-            raise NotImplementedError("Denoising future frames at inference is not migrated yet.")
-        return self._pre(first, first.new_zeros(first.shape[0]), request["context"]["video"])
+            return self._pre(latents[FUTURE_FRAMES], timesteps[FUTURE_FRAMES], context)
+        first = request["first_frame_latents"]
+        return self._pre(first, first.new_zeros(first.shape[0]), context)
+
+    def start(self, stream: str, request: Mapping[str, Any]) -> Tensor:
+        """Noise for the whole clip, with the current frame kept clean."""
+        height, width = request["input_image"].shape[2:]
+        factor = self.vae.upsampling_factor
+        frames = (request["num_video_frames"] - 1) // self.vae.temporal_downsample_factor + 1
+        noise = randn_per_sample(
+            (self.vae.model.z_dim, frames, height // factor, width // factor),
+            seeds=request["seed"],
+            batch_size=request["batch_size"],
+            rand_device=request["rand_device"],
+        ).to(device=self.device, dtype=self.dtype)
+        noise[:, :, 0:1] = request["first_frame_latents"].clone()
+        return noise
+
+    def after_step(self, stream: str, latent: Tensor, request: Mapping[str, Any]) -> Tensor:
+        latent[:, :, 0:1] = request["first_frame_latents"].clone()
+        return latent

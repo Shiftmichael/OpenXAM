@@ -52,6 +52,8 @@ class ActionTower(DiTTower):
             proprio = sample.get("proprio")
             if proprio is None:
                 raise ValueError("`proprio` is required when the state stream is enabled.")
+            if proprio.ndim != 3:
+                raise ValueError(f"`proprio` must be [B, T, D], got {tuple(proprio.shape)}")
             state = proprio[:, 0, :].to(device=self.device, dtype=self.dtype)
         return {
             "action": action.to(device=self.device, dtype=self.dtype, non_blocking=True),

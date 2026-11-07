@@ -266,6 +266,44 @@ def create_easywam_hidden(
     return _apply_video_dit_lora(model, lora)
 
 
+def create_xam(
+    spec,
+    backbone=None,
+    state_dim: int | None = None,
+    projector_hidden_dim: int = 64,
+    action_dit_config=None,
+    action_dit_pretrained_path: str | None = None,
+    skip_dit_load_from_pretrain: bool = False,
+    video_scheduler=None,
+    action_scheduler=None,
+    model_variant: str | None = None,
+    lora=None,
+    model_dtype: torch.dtype = torch.bfloat16,
+    device: str = "cuda",
+):
+    """A model described by a file in ``configs/xam``."""
+    from openxam.core.build import build_model
+
+    def plain(value):
+        return OmegaConf.to_container(value, resolve=True) if isinstance(value, DictConfig) else value
+
+    model = build_model(
+        spec,
+        backbone=plain(backbone),
+        action_dit_config=plain(action_dit_config),
+        action_dit_pretrained_path=action_dit_pretrained_path,
+        state_dim=state_dim,
+        projector_hidden_dim=projector_hidden_dim,
+        skip_dit_load_from_pretrain=_resolve_skip_dit_load_from_pretrain(skip_dit_load_from_pretrain, lora),
+        video_scheduler=plain(video_scheduler),
+        action_scheduler=plain(action_scheduler),
+        model_variant=model_variant,
+        device=device,
+        torch_dtype=model_dtype,
+    )
+    return _apply_video_dit_lora(model, lora)
+
+
 @reuse_during_construction
 def build_datasets(data_cfg: DictConfig):
     from openxam.utils import misc

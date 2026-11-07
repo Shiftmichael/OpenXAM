@@ -6,7 +6,7 @@
 
 Vision-language-action models (VLAs) and world-action models (WAMs) differ mainly in what information reaches the action generator: a VLM's knowledge, a video model's sense of dynamics, a written plan, optical flow, touch. OpenXAM treats that X as a setting. The goal is one codebase where a lab can fine-tune, run and evaluate these models on a modest GPU budget, starting from public pretrained weights.
 
-> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and MoT training and action sampling match EasyWAM-MoT exactly on small random models. Training and evaluation scripts still use the EasyWAM classes.
+> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and MoT matches EasyWAM-MoT exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_fastwam_wan22` to run it. It has not been tried with real weights or on a GPU yet, and the other structures still use the EasyWAM classes.
 
 ## Design
 
@@ -73,7 +73,9 @@ Tests that need neither a GPU nor a simulator:
 python tests/test_package_imports.py
 python tests/test_core_spec.py
 python tests/test_core_plan.py
-python tests/test_parity_mot.py   # needs PyTorch
+python tests/test_parity_mot.py     # needs PyTorch
+python tests/test_trainer_smoke.py  # needs PyTorch and Accelerate
+python tests/test_hydra_configs.py  # needs Hydra
 ```
 
 ## Documentation
