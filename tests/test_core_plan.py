@@ -282,6 +282,28 @@ def test_mode_shares_add_up() -> None:
     assert sample_weights(spec_of("predict_mix_wan22")) == {"joint": 0.5, "predict": 0.5}
 
 
+def test_towers_run_in_groups() -> None:
+    assert plan_train(spec_of("fastwam_wan22"), "joint").groups == (("video", "action"),)
+    assert plan_train(spec_of("unified_wan22"), "joint").groups == (("video",),)
+    first, second = plan_infer(spec_of("mot_idm_wan22"), "act_and_imagine")
+    assert (first.groups, second.groups) == ((("video",),), (("video", "action"),))
+    hidden = plan_train(spec_of("hidden_wan22"), "joint")
+    assert hidden.groups == (("video",), ("action",))
+    assert hidden.captures(("video",)) == {"video": 17} and hidden.captures(("action",)) == {}
+
+
+def test_a_tower_reading_features_runs_after_its_source() -> None:
+    config = yaml.safe_load((CONFIGS / "hidden_wan22.yaml").read_text())
+    config["towers"] = {"action": config["towers"]["action"], "video": config["towers"]["video"]}
+    plan = plan_train(ModelSpec.from_dict(config), "joint")
+    assert plan.active_towers == ("action", "video")
+    assert plan.groups == (("video",), ("action",))
+
+
+def test_idm_noise_shares_reach_the_plan() -> None:
+    assert plan_train(spec_of("mot_idm_wan22"), "teacher_forcing").sometimes == {"future_c": 0.5}
+
+
 if __name__ == "__main__":
     for name, check in sorted(globals().items()):
         if name.startswith("test_"):

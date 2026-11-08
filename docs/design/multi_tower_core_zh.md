@@ -1,6 +1,6 @@
 # OpenXAM 多塔核心：接口草案
 
-状态：配置检查和编译已实现。MoT 已经完整跑在这套核心上，能走训练器，只差真实权重和 GPU 上的验证。其余结构还在迁移。
+状态：配置检查和编译已实现。EasyWAM 的五种结构（MoT、MoT-Joint、MoT-IDM、Unified、Hidden）都已跑在这套核心上，骨干是 Wan2.2，能走训练器。只差真实权重和 GPU 上的验证。
 
 ## 1. 要解决什么
 
@@ -63,7 +63,7 @@ losses:
 
 逐段说明：
 
-- **`towers`**：`train` 取 `full`、`lora` 或 `frozen`。`context` 是这座塔每层交叉注意力读的固定序列。`init` 决定动作塔怎么初始化：`from_video` 是现在的做法，从视频塔权重推出来；`random` 是随机初始化。
+- **`towers`**：`train` 取 `full`、`lora` 或 `frozen`。`context` 是这座塔每层交叉注意力读的固定序列。`init` 决定动作塔怎么初始化：`from_video` 是现在的做法，从视频塔权重推出来；`random` 是随机初始化。仓库里复现 EasyWAM MoT 系列的配置还写了 `noise_first_frame: true`：当前画面也抽一份噪声再丢掉，和旧类一样。它只改变随机数落在哪里，新配置不用写。
 - **`streams`**：`tower` 说明这一路走哪座塔。没有 `tower` 的路（这里的 `text`）只是一段固定序列。
 - **`reads`**：一行一个读者。这里动作读当前画面，不读未来视频，这正是 FastWAM 的定义。未来视频不读动作。
 - **`train`**：一种训练方式一项。`noisy` 里的路加噪，其余都是干净的。每路的噪声水平各自抽取，要共用就写 `tie`。
@@ -284,7 +284,7 @@ losses:
 
 ### 读视频塔的中间特征
 
-EasyWAM-Hidden：动作塔通过交叉注意力读视频塔第 17 层的特征，不回传训练信号。推理时未来视频不去噪，停在纯噪声上跑一次，用 `hold` 表示。
+EasyWAM-Hidden：动作塔通过交叉注意力读视频塔第 17 层的特征，不回传训练信号。推理时未来视频不去噪，停在纯噪声上跑一次，用 `hold` 表示。视频塔只需要跑到第 17 层。`act_and_imagine` 同时生成视频，动作读的仍是第一步的特征：一个阶段里，读别的塔的特征只在第一步读一次。
 
 ```yaml
 # example: hidden
@@ -316,6 +316,8 @@ train:
 infer:
   act:
     - {denoise: [action], hold: [future], steps: 10}
+  act_and_imagine:
+    - {denoise: [future, action], steps: 10}
 
 losses:
   - {stream: action, type: flow}
@@ -402,7 +404,7 @@ src/openxam/core/spec.py     配置的数据结构和检查，不依赖 PyTorch
 src/openxam/core/plan.py     把配置编译成执行计划，不依赖 PyTorch
 src/openxam/core/driver.py   逐层运行
 src/openxam/core/model.py    XAMModel：训练器和评测调用的入口
-src/openxam/towers/          每种塔一个文件：base、dit、wan、action
+src/openxam/towers/          每种塔一个文件：base、dit、wan、action、unified
 ```
 
 ### 塔
@@ -418,20 +420,31 @@ class Tower(nn.Module):
     # 训练
     def prepare(self, sample) -> dict: ...                 # 原始批次变成干净输入
     def add_noise(self, batch, plan, timesteps) -> None: ...
+    def add_optional_noise(self, batch, plan) -> None: ... # 只是有时加噪的路，在其余噪声之后
     def embed(self, batch, context) -> TowerState: ...     # 输入变成 token
 
     # 每一层
     def qkv(self, layer, x, state): ...                    # 注意力之前：q、k、v
     def finish(self, layer, attn_out, carry, state): ...   # 注意力之后：输出投影、交叉注意力、前馈
+    def run_block(self, layer, x, mask, state): ...        # 只读自己时，整层一次跑完
 
     # 收尾
     def readout(self, stream, x, state) -> Tensor: ...
     def flow_loss(self, stream, prediction, batch) -> Tensor: ...
 
+    # 别的塔读这座塔的特征
+    def project_features(self, features) -> Tensor: ...    # 读的一方：把特征变成交叉注意力的输入
+    def feature_mask(self, batch, state): ...              # 被读的一方：哪些 token 可读
+
     # 推理
     def start(self, stream, request) -> Tensor: ...        # 去噪的起点
-    def embed_step(self, request, latents, timesteps) -> TowerState: ...
+    def embed_step(self, plan, request, latents, timesteps) -> TowerState: ...
+
+    # 存权重
+    def checkpoint_parts(self) -> dict: ...                # 这座塔要存的模块和名字
 ```
+
+视频塔可以同时跑几段视频，每段是一路当前画面加一路未来视频，比如 IDM 的两份视频。
 
 只读自己的塔（比如 VLM）可以更简单。它不用和别的塔逐层交替，一次跑完，交出每层的 K、V 就行。对冻结的 VLM，这就是 Hugging Face 模型返回的 `past_key_values`，不用改它的内部。
 
@@ -447,10 +460,13 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 - **token 的排列**：每一路在序列里的位置。
 - **注意力结构**：`plan.segments(...)` 直接对应现在的 `AttentionSegment`。有 `grad: false` 的读取时，段里记下哪些范围要断开，运行时逐段做注意力。
 - **可以缓存的塔**：干净的路，如果它读的路也都不变，这一阶段只算一次。一座塔的路全部不变时，整座塔只跑一次。现在手写的 `prefill_video_cache` 由这条规则推出来。
+- **塔的分组和顺序**：互相读的塔放进一组，组内逐层交替。读别的塔特征的塔单独一组，排在被读的塔后面。Hidden 就是先跑视频塔、再跑动作塔。
 
 ### 逐层运行
 
 `core/driver.py` 里的 `run_layers` 每层做三件事：各塔算 q、k、v，合起来做一次注意力，各塔收尾。
+
+一座塔只读自己时，比如 Unified 的唯一一座塔、Hidden 的两座塔、IDM 先生成视频的阶段，就整层一次跑完，不拆成两半。两种跑法的区别在旋转位置编码：拆开时按 float32 算，整层跑时按模型精度算，bfloat16 下结果不同。这样选和 EasyWAM 各个类的做法一致。
 
 ### 模型入口
 
@@ -458,7 +474,9 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 
 权重格式也不变：新旧两边存的权重可以互相读。
 
-配置里写 `_target_: openxam.runtime.create_xam` 和 `spec: fastwam_wan22`，就会用新核心。现成的例子是 `task=libero_xam_fastwam_wan22`。
+配置里写 `_target_: openxam.runtime.create_xam` 和 `spec: fastwam_wan22`，就会用新核心。五种结构都有现成的 LIBERO 任务：`task=libero_xam_<结构>_wan22`，结构是 `fastwam`、`mot_joint`、`mot_idm`、`unified`、`hidden`。
+
+塔之间互相读时，权重存在 `mot` 下面，和 EasyWAM 的 MoT 系列一样。不互相读时存在 `dit` 下面，和 Unified、Hidden 一样。只能边想象边出动作的模型，比如 MoT-Joint，没有单独的 `act` 程序，出动作时跑 `act_and_imagine`。
 
 测试时切断某一路读取，只要在阶段里写 `cut: ["action<-future"]`。给定动作预测未来的入口 `predict_future` 还没加。
 
@@ -475,6 +493,9 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 | 去噪的路训练过 | 推理要去噪一路，但没有任何训练方式给它加过噪 |
 | 推理不读训练没见过的状态 | 训练时动作读带噪的未来视频，推理时未来视频不存在 |
 | 读取表在推理时和某种训练方式一致 | 推理时未来视频读动作，但训练时从没这样读过 |
+| 读特征的塔排得出先后 | 动作塔读视频塔的特征，视频塔又读动作塔的特征 |
+| 读特征的塔不和被读的塔互相读 | 动作塔既读视频塔第 17 层，又在联合注意力里读视频 |
+| 被读特征的塔在场 | 推理阶段把视频塔的路都设成不存在，动作塔却要读它的特征 |
 
 最后两条能防住一类很难查的错误：代码能跑，分数却莫名其妙地低。
 
@@ -491,9 +512,9 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 | `runtime.create_easywam_*` | `create_model(spec)` |
 | 训练器、评测 | 不变 |
 
-顺序：MoT → MoT-Joint → Unified → IDM → Hidden → VLM 塔。
+顺序：MoT → MoT-Joint → Unified → IDM → Hidden → VLM 塔。前五步已完成。
 
-每迁移一种结构，用很小的随机塔做一次一致性测试：新旧两条路径用相同的权重和输入，`training_loss` 和动作输出要一致。全部通过后才删旧类。这一步需要 PyTorch，但不需要 GPU。
+每迁移一种结构，用很小的随机塔做一次一致性测试：新旧两条路径用相同的权重和输入，`training_loss` 和动作输出要一致。这一步需要 PyTorch，但不需要 GPU。五种结构都已通过，但旧类暂时保留：GPU 上用真实权重比对时还要用它们，FLUX 也还在用。
 
 ## 8. 已定的决定
 
@@ -510,16 +531,18 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 
 - **结构**：读取表编译出的注意力结构，和 EasyWAM 的 MoT、MoT-Joint、IDM、Unified 逐段一致，也和 NUS OpenWAM 的四种可见方式逐位一致（`tests/test_core_plan.py`）。这里的现有逻辑是照源码重新写的，这样测试不需要 PyTorch。
 - **配置检查**：第 6 节的检查都有测试，每一项都用写错的配置确认能报错（`tests/test_core_spec.py`）。
-- **MoT 数值**：用很小的随机塔，把同一批模块接到旧类和 `XAMModel` 上，loss、全部梯度、采样出的动作和生成的视频都逐位相同，打开梯度检查点或交叉注意力缓存时也相同（`tests/test_parity_mot.py`）。把读取表改掉时，结果确实会变，所以这个比较有效。
-- **权重**：新旧两边存的权重互相读取后，动作逐位相同；读到别的结构的权重会报错。
-- **训练器**：真实的 `EasyWAMTrainer` 在 CPU 上能训练新模型、存权重、中断后接着训（`tests/test_trainer_smoke.py`）。接着训时权重、步数和优化器都恢复了。之后的步骤和不中断的训练不逐位相同，旧类也一样。
-- **Hydra 配置**：`task=libero_xam_fastwam_wan22` 能组合出来，除模型入口外和旧任务相同（`tests/test_hydra_configs.py`）。
+- **五种结构的数值**：用很小的随机塔，把同一批模块接到旧类和 `XAMModel` 上，loss、全部梯度、采样出的动作和生成的视频都逐位相同（`tests/test_parity_mot.py`、`tests/test_parity_structures.py`）。打开梯度检查点或交叉注意力缓存、换成另外两种视频可见方式、用 bfloat16、编译推理步骤时也相同。
+- **这些比较有效**：把读取表或 Hidden 读的层改掉，结果会变。故意让所有塔都拆开跑，IDM、Unified、Hidden 会对不上；故意让 MoT 系列不给当前画面抽噪声，它们的训练会对不上。
+- **权重**：新旧两边存的权重互相读取后，动作逐位相同；读到别的结构的权重会报错。参数名和旧类逐个相同。
+- **训练器**：真实的 `EasyWAMTrainer` 在 CPU 上能训练五种结构、存权重、再读回来（`tests/test_trainer_smoke.py`）。MoT 还测了中断后接着训：权重、步数和优化器都恢复了，之后的步骤和不中断的训练不逐位相同，旧类也一样。
+- **评测后接着训练**：评测在 inference mode 下跑。原来的缓存会把这时算的位置编码交给之后的训练步，训练步就会报错，旧类也一样。先只用当前画面出动作、再生成视频、再训练，就能复现。现在两种模式各缓存各的，五种结构都测过。
+- **Hydra 配置**：五个 `task=libero_xam_*_wan22` 都能组合出来，除模型入口外和旧任务相同。挪进配置文件的设置（Hidden 读第几层、IDM 的加噪概率）和旧配置一致（`tests/test_hydra_configs.py`）。
 - **`grad: false`**：断开后输出不变，视频塔收不到动作损失的梯度。
 
 **还没有验证：**
 
 - 真实权重和 GPU 上的结果。上面都是 CPU 上的小模型，真实的评测流程也没走过。
 - LoRA 的存取。用来测试的环境没有装 `peft`。
-- Cosmos 塔。`towers/dit.py` 保留了它的分支，但还没有测试。
-- MoT 以外的结构。
+- Cosmos 塔。`towers/dit.py` 保留了它的分支，但还没有测试。Unified 和 Hidden 的旧类在解算器那一步前把当前画面的预测清零，用 Wan 的解算器时没有影响，换成 Cosmos 的多步解算器就有。Cosmos 版的 Unified 还要用共享的调度器。
+- FLUX 还在旧类上。
 - VLM 塔的实现细节：K、V 头数和动作塔的对齐，位置编码怎么对齐，Qwen3-VL 把视觉特征注入前几层的做法。

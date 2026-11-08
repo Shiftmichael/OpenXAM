@@ -269,6 +269,7 @@ def create_easywam_hidden(
 def create_xam(
     spec,
     backbone=None,
+    action_dim: int | None = None,
     state_dim: int | None = None,
     projector_hidden_dim: int = 64,
     action_dit_config=None,
@@ -291,6 +292,7 @@ def create_xam(
         spec,
         backbone=plain(backbone),
         action_dit_config=plain(action_dit_config),
+        action_dim=action_dim,
         action_dit_pretrained_path=action_dit_pretrained_path,
         state_dim=state_dim,
         projector_hidden_dim=projector_hidden_dim,

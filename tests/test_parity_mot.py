@@ -66,7 +66,7 @@ class TinyVAE(nn.Module):
         self.model = types.SimpleNamespace(z_dim=LATENT_DIM)
 
     def encode(self, video: torch.Tensor, device=None) -> torch.Tensor:
-        pooled = F.avg_pool3d(video[:, :, ::4], (1, 8, 8))
+        pooled = F.avg_pool3d(video[:, :, ::4].float(), (1, 8, 8)).to(self.mix.dtype)  # no bfloat16 pooling on CPU
         return torch.einsum("lc,bcthw->blthw", self.mix, pooled)
 
     def decode(self, latents: torch.Tensor, device=None) -> torch.Tensor:
@@ -89,7 +89,7 @@ class TinyText(nn.Module):
         return torch.stack(tokens), torch.ones(len(prompts), 4, dtype=torch.bool)
 
 
-def tiny_modules(seed: int = 0):
+def tiny_modules(seed: int = 0, layers: int = 2):
     torch.manual_seed(seed)
     video = WanVideoDiT(
         hidden_dim=48,
@@ -102,7 +102,7 @@ def tiny_modules(seed: int = 0):
         patch_size=(1, 2, 2),
         num_heads=2,
         attn_head_dim=24,
-        num_layers=2,
+        num_layers=layers,
         has_image_input=False,
         seperated_timestep=True,
         fuse_vae_embedding_in_latents=True,
@@ -116,13 +116,13 @@ def tiny_modules(seed: int = 0):
         freq_dim=16,
         num_heads=2,
         attn_head_dim=24,
-        num_layers=2,
+        num_layers=layers,
         projector_hidden_dim=8,
     )
     return video, action, TinyVAE()
 
 
-def old_model(video, action, vae, text_encoder=None) -> EasyWAMMoT:
+def old_model(video, action, vae, text_encoder=None, dtype=torch.float32) -> EasyWAMMoT:
     return EasyWAMMoT(
         video_expert=video,
         action_expert=action,
@@ -133,22 +133,31 @@ def old_model(video, action, vae, text_encoder=None) -> EasyWAMMoT:
         state_dim=STATE_DIM,
         state_position="sequence",
         device="cpu",
-        torch_dtype=torch.float32,
+        torch_dtype=dtype,
     )
+
+
+def noise_first_frame(spec: ModelSpec) -> bool:
+    return bool(spec.towers["video"].options.get("noise_first_frame", False))
 
 
 def new_model(old: EasyWAMMoT, config: dict | None = None) -> XAMModel:
     config = config or yaml.safe_load((ROOT / "configs" / "xam" / "fastwam_wan22.yaml").read_text())
+    spec = ModelSpec.from_dict(config)
+    video = WanTower(
+        old.video_expert,
+        old.vae,
+        old.train_video_scheduler,
+        old.infer_video_scheduler,
+        noise_first_frame=noise_first_frame(spec),
+    )
+    action = ActionTower(old.action_expert, old.state_encoder, old.train_action_scheduler, old.infer_action_scheduler)
     return XAMModel(
-        ModelSpec.from_dict(config),
-        {
-            "video": WanTower(old.video_expert, old.vae, old.train_video_scheduler, old.infer_video_scheduler),
-            "action": ActionTower(
-                old.action_expert, old.state_encoder, old.train_action_scheduler, old.infer_action_scheduler
-            ),
-        },
+        spec,
+        {"video": video, "action": action},
         text_encoder=old.text_encoder,
         model_variant=old.model_variant,
+        torch_dtype=old.torch_dtype,
     )
 
 
@@ -436,6 +445,19 @@ def run_training_keeps_gradients(model) -> bool:
     found = any(parameter.grad is not None for parameter in model.dit.parameters())
     model.zero_grad(set_to_none=True)
     return found
+
+
+def test_bfloat16_matches() -> None:
+    """Training runs in bfloat16, where the two ways of applying rotary embeddings round differently."""
+    old = old_model(*tiny_modules(), dtype=torch.bfloat16)
+    new = new_model(old)
+    sample = batch()
+    loss_old, _, grads_old = run_training(old, sample)
+    loss_new, _, grads_new = run_training(new, sample)
+    assert torch.equal(loss_old, loss_new)
+    assert_same_gradients(grads_old, grads_new)
+    assert torch.equal(act(old, sample), act(new, sample))
+    assert torch.equal(imagine(old, sample)["action"], imagine(new, sample)["action"])
 
 
 def test_compiled_step_matches() -> None:

@@ -123,6 +123,22 @@ class ContextRead:
         return cls(str(raw["from"]), None if layer is None else int(layer), bool(raw.get("grad", True)))
 
 
+def attention_groups(
+    towers: Iterable[str],
+    rows: Mapping[str, Iterable[Read]],
+    tower_of: Mapping[str, str],
+) -> list[tuple[str, ...]]:
+    """Towers that attend to each other, directly or through another tower."""
+    groups = {tower: (tower,) for tower in towers}
+    for reader, row in rows.items():
+        for read in row:
+            first, second = groups[tower_of[reader]], groups[tower_of[read.source]]
+            if first != second:
+                joined = tuple(tower for tower in groups if tower in first or tower in second)
+                groups.update({tower: joined for tower in joined})
+    return list(dict.fromkeys(groups.values()))
+
+
 @dataclass(frozen=True)
 class TowerShape:
     layers: int
@@ -357,6 +373,16 @@ class ModelSpec:
             if stream.tower == tower
         )
 
+    @property
+    def feature_reads(self) -> dict[str, ContextRead]:
+        """Towers that read a layer of another tower, and what they read."""
+        return {
+            tower.name: read
+            for tower in self.towers.values()
+            for read in tower.context
+            if read.source in self.towers
+        }
+
     def rows(self, overrides: Optional[Mapping[str, tuple[Read, ...]]] = None) -> dict[str, tuple[Read, ...]]:
         rows = dict(self.reads)
         rows.update(overrides or {})
@@ -373,6 +399,7 @@ class ModelSpec:
         if problems:
             return problems  # the checks below assume every name resolves and every stream has a row
         for check in (
+            self._check_contexts,
             self._check_shapes,
             self._check_modes,
             self._check_losses,
@@ -441,6 +468,44 @@ class ModelSpec:
             yield f"train.{mode.name}", self.rows(mode.reads)
         for program, index, stage in self.stages():
             yield f"infer.{program}[{index}]", self.rows(stage.reads)
+
+    def _check_contexts(self) -> list[Problem]:
+        problems = [
+            Problem("context", f"towers.{tower.name}: a tower reads one context sequence, not several")
+            for tower in self.towers.values()
+            if len(tower.context) > 1
+        ]
+        features = self.feature_reads
+        tower_of = {stream: self.streams[stream].tower for stream in self.token_streams}
+
+        for reader in features:
+            seen, source = {reader}, features[reader].source
+            while source in features and source not in seen:
+                seen.add(source)
+                source = features[source].source
+            if source in seen:
+                problems.append(Problem("context", f"towers.{reader}: reading features goes round in a circle"))
+
+        for where, rows in self._tables():
+            for group in attention_groups(self.towers, rows, tower_of):
+                for reader, read in features.items():
+                    if reader in group and read.source in group:
+                        problems.append(
+                            Problem(
+                                "context",
+                                f"{where}: {reader} reads features of {read.source}, but they also attend to "
+                                "each other, so neither can run first",
+                            )
+                        )
+
+        scenes = [(f"train.{mode.name}", mode.state) for mode in self.train]
+        scenes += [(f"infer.{program}[{index}]", stage.state) for program, index, stage in self.stages()]
+        for where, state in scenes:
+            live = {tower_of[stream] for stream in self.token_streams if state(stream) != ABSENT}
+            for reader, read in features.items():
+                if reader in live and read.source not in live:
+                    problems.append(Problem("unseen", f"{where}: {reader} reads features of {read.source}, which is absent"))
+        return problems
 
     def _check_shapes(self) -> list[Problem]:
         problems = []

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, NamedTuple, Optional, Sequence
 
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
 from openxam.core.plan import Plan
-from openxam.core.spec import NOISY
+from openxam.core.spec import CLEAN, EITHER, NOISY
 from openxam.model.helpers.batching import encode_image_batch, randn_per_sample
 
 from .base import Context, TowerState, flow_weighted_mean, shared_timestep
@@ -17,6 +17,14 @@ from .dit import DiTTower
 
 CURRENT_FRAME = "obs"
 FUTURE_FRAMES = "future"
+
+
+class Noised(NamedTuple):
+    """A clip as a training step feeds it to the tower."""
+
+    latents: Tensor
+    timestep: Tensor
+    target: Optional[Tensor] = None
 
 
 def _video_loss_per_sample(
@@ -41,11 +49,28 @@ def _video_loss_per_sample(
 
 
 class WanTower(DiTTower):
-    def __init__(self, dit: nn.Module, vae: nn.Module, train_scheduler: Any, infer_scheduler: Any):
+    """Runs one or more clips, each a current frame and the future frames after it.
+
+    ``noise_first_frame`` draws noise for the current frame too and discards it. It changes
+    only which random numbers land where, and matches the EasyWAM classes that do so.
+    """
+
+    def __init__(
+        self,
+        dit: nn.Module,
+        vae: nn.Module,
+        train_scheduler: Any,
+        infer_scheduler: Any,
+        *,
+        clips: Sequence[tuple[str, str]] = ((CURRENT_FRAME, FUTURE_FRAMES),),
+        noise_first_frame: bool = False,
+    ):
         super().__init__(dit)
         self.vae = vae
         self.train_scheduler = train_scheduler
         self.infer_scheduler = infer_scheduler
+        self.clips = tuple(clips)
+        self.noise_first_frame = noise_first_frame
 
     @property
     def device(self) -> torch.device:
@@ -60,6 +85,9 @@ class WanTower(DiTTower):
         self.vae.eval()
         return self
 
+    def checkpoint_parts(self) -> dict[str, nn.Module]:
+        return {"video_dit": self.dit}
+
     def prepare(self, sample: Mapping[str, Any]) -> dict[str, Any]:
         video = sample["video"]
         if video.ndim != 5 or video.shape[1] != 3:
@@ -72,36 +100,56 @@ class WanTower(DiTTower):
         pad = sample.get("image_is_pad")
         if pad is not None:
             pad = pad.to(device=self.device, dtype=torch.bool, non_blocking=True)
-        return {"latents": latents, "image_is_pad": pad}
+        return {"latents": latents, "image_is_pad": pad, "clips": {}}
+
+    def _noise(self, latents: Tensor) -> Tensor:
+        if self.noise_first_frame:
+            return torch.randn_like(latents)
+        noise = torch.zeros_like(latents)
+        noise[:, :, 1:] = torch.randn_like(noise[:, :, 1:])
+        return noise
 
     def add_noise(self, batch: dict[str, Any], plan: Plan, timesteps: dict) -> None:
         latents = batch["latents"]
         scheduler = self.train_scheduler
-        if plan.states.get(FUTURE_FRAMES) != NOISY:
-            batch["noisy"] = latents
-            batch["t"] = latents.new_zeros(latents.shape[0])
-            return
-        noise = torch.randn_like(latents)
-        timestep = shared_timestep(
-            FUTURE_FRAMES,
-            plan,
-            timesteps,
-            lambda: scheduler.sample_training_t(latents.shape[0], self.device, latents.dtype),
-        )
-        noisy = scheduler.add_noise(latents, noise, timestep)
-        noisy[:, :, 0:1] = latents[:, :, 0:1]
-        batch["noisy"] = noisy
-        batch["t"] = timestep
-        batch["target"] = scheduler.training_target(latents, noise, timestep)
+        for _, future in self.clips:
+            state = plan.states.get(future)
+            if state == CLEAN:
+                batch["clips"][future] = Noised(latents, latents.new_zeros(latents.shape[0]))
+            elif state == NOISY:
+                noise = self._noise(latents)
+                timestep = shared_timestep(
+                    future,
+                    plan,
+                    timesteps,
+                    lambda: scheduler.sample_training_t(latents.shape[0], self.device, latents.dtype),
+                )
+                noisy = scheduler.add_noise(latents, noise, timestep)
+                noisy[:, :, 0:1] = latents[:, :, 0:1]
+                target = scheduler.training_target(latents, noise, timestep)[:, :, 1:]
+                batch["clips"][future] = Noised(noisy, timestep, target)
 
-    def _pre(
-        self,
-        latents: Tensor,
-        timestep: Tensor,
-        context: Context,
-    ) -> TowerState:
+    def add_optional_noise(self, batch: dict[str, Any], plan: Plan) -> None:
+        latents = batch["latents"]
+        scheduler = self.train_scheduler
+        size = latents.shape[0]
+        for _, future in self.clips:
+            if plan.states.get(future) != EITHER:
+                continue
+            chosen = torch.rand((size,), device=self.device) < plan.sometimes[future]
+            timestep = latents.new_zeros(size)
+            clip = latents
+            if bool(chosen.any()):
+                sampled = scheduler.sample_training_t(size, self.device, latents.dtype)
+                timestep = torch.where(chosen, sampled, timestep)
+                noisy = scheduler.add_noise(latents, torch.randn_like(latents), sampled)
+                clip = torch.where(chosen.view(size, 1, 1, 1, 1), noisy, latents)
+            clip = clip.clone()
+            clip[:, :, 0:1] = latents[:, :, 0:1]
+            batch["clips"][future] = Noised(clip, timestep)
+
+    def _clip(self, first: str, future: str, latents: Tensor, timestep: Tensor, context: Context) -> TowerState:
         pre = self.dit.pre_dit(
-            prepare_rotary_factors=False,
             x=latents,
             timestep=timestep,
             context=context.tokens,
@@ -112,24 +160,64 @@ class WanTower(DiTTower):
         )
         frame = int(pre["meta"]["tokens_per_frame"])
         total = int(pre["tokens"].shape[1])
-        return TowerState(pre["tokens"], {CURRENT_FRAME: frame, FUTURE_FRAMES: total - frame}, frame, pre)
+        return TowerState(pre["tokens"], {first: frame, future: total - frame}, frame, pre)
+
+    def _side_by_side(self, clips: Sequence[tuple[str, TowerState]]) -> TowerState:
+        """One state for clips that sit next to each other in the sequence."""
+        extras = dict(clips[0][1].extras)
+        extras["clips"] = {}
+        lengths: dict[str, int] = {}
+        start = 0
+        for index, (future, clip) in enumerate(clips):
+            end = start + int(clip.tokens.shape[1])
+            extras["clips"][future] = (start, end, clip.extras)
+            lengths.update(clip.lengths)
+            start = end
+            if index:
+                extras.update(self.dit.merge_prepared_conditioning(extras, clip.extras))
+                extras.pop("rope", None)
+        tokens = clips[0][1].tokens if len(clips) == 1 else torch.cat([clip.tokens for _, clip in clips], dim=1)
+        return TowerState(tokens, lengths, clips[0][1].frame_tokens, extras)
 
     def embed(self, batch: Mapping[str, Any], context: Context) -> TowerState:
-        return self._pre(batch["noisy"], batch["t"], context)
+        return self._side_by_side(
+            [
+                (future, self._clip(first, future, *batch["clips"][future][:2], context))
+                for first, future in self.clips
+                if future in batch["clips"]
+            ]
+        )
 
     def readout(self, stream: str, x: Tensor, state: TowerState) -> Tensor:
-        if stream != FUTURE_FRAMES:
-            raise ValueError(f"The video tower predicts `{FUTURE_FRAMES}`, not {stream!r}.")
-        return self.dit.post_dit(x, state.extras)
+        if stream not in state.extras["clips"]:
+            raise ValueError(f"The video tower has no clip for {stream!r}.")
+        start, end, pre = state.extras["clips"][stream]
+        return self.dit.post_dit(x[:, start:end], pre)
 
     def flow_loss(self, stream: str, prediction: Tensor, batch: Mapping[str, Any]) -> Tensor:
+        clip = batch["clips"][stream]
         per_sample = _video_loss_per_sample(
             prediction[:, :, 1:],
-            batch["target"][:, :, 1:],
+            clip.target,
             batch["image_is_pad"],
             int(self.vae.temporal_downsample_factor),
         )
-        return flow_weighted_mean(per_sample, self.train_scheduler, batch["t"])
+        return flow_weighted_mean(per_sample, self.train_scheduler, clip.timestep)
+
+    def feature_mask(self, batch: Mapping[str, Any], state: TowerState) -> Optional[Tensor]:
+        """Padded frames are not there to be read."""
+        pad = batch["image_is_pad"]
+        if pad is None or not bool(pad.any().item()):
+            return None
+        factor = int(self.vae.temporal_downsample_factor)
+        if (pad.shape[1] - 1) % factor != 0:
+            raise ValueError(f"Cannot align `image_is_pad` with latent frames: {pad.shape[1]} frames, factor {factor}.")
+        tail = pad[:, 1:].view(pad.shape[0], -1, factor).all(dim=2)
+        latent_pad = torch.cat([pad[:, :1], tail], dim=1)
+        frames = int(state.extras["meta"]["grid_size"][0])
+        if latent_pad.shape[1] != frames:
+            raise ValueError(f"Video padding covers {latent_pad.shape[1]} latent frames, the clip has {frames}.")
+        return (~latent_pad).repeat_interleave(state.frame_tokens, dim=1)
 
     def encode_request(self, request: dict[str, Any]) -> None:
         request["first_frame_latents"] = encode_image_batch(self.vae, request["input_image"], self.device)
@@ -139,15 +227,22 @@ class WanTower(DiTTower):
 
     def embed_step(
         self,
+        plan: Plan,
         request: Mapping[str, Any],
         latents: Mapping[str, Tensor],
         timesteps: Mapping[str, Tensor],
     ) -> TowerState:
-        context = request["context"]["video"]
-        if FUTURE_FRAMES in latents:
-            return self._pre(latents[FUTURE_FRAMES], timesteps[FUTURE_FRAMES], context)
-        first = request["first_frame_latents"]
-        return self._pre(first, first.new_zeros(first.shape[0]), context)
+        live = [clip for clip in self.clips if clip[0] in plan.states]
+        if len(live) != 1:
+            raise NotImplementedError(f"Inference runs one clip at a time, this stage has {len(live)}.")
+        first, future = live[0]
+        if future in plan.states:
+            clip, timestep = latents[future], timesteps[future]
+        else:
+            clip = request["first_frame_latents"]
+            timestep = clip.new_zeros(clip.shape[0])
+        state = self._clip(first, future, clip, timestep, request["context"]["video"])
+        return self._side_by_side([(future, state)])
 
     def start(self, stream: str, request: Mapping[str, Any]) -> Tensor:
         """Noise for the whole clip, with the current frame kept clean."""
@@ -164,5 +259,7 @@ class WanTower(DiTTower):
         return noise
 
     def after_step(self, stream: str, latent: Tensor, request: Mapping[str, Any]) -> Tensor:
-        latent[:, :, 0:1] = request["first_frame_latents"].clone()
+        """The solver moves the current frame too, so it is put back."""
+        if any(stream == future for _, future in self.clips):
+            latent[:, :, 0:1] = request["first_frame_latents"].clone()
         return latent

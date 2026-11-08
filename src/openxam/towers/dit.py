@@ -73,3 +73,6 @@ class DiTTower(Tower):
                 block.norm3(x), context["context"], ctx_mask=context["mask"], projected_kv=context.get("kv")
             )
         return block.gate(x, gate_mlp, block.ffn(_modulate(block.norm2(x), shift_mlp, scale_mlp)))
+
+    def run_block(self, layer: int, x: Tensor, mask: Any, state: TowerState) -> Tensor:
+        return self.dit.forward_block(layer, x, state.extras, mask)

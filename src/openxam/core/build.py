@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Union
 
 import torch
+from torch import nn
 
 from openxam.model.backbone import load_easywam_backbone, normalize_backbone_config
 from openxam.model.backbone.protocol import BLOCK_PROTOCOL_STANDARD
-from openxam.model.component.action_dit import ActionDiT, StateEncoder
+from openxam.model.component.action_dit import ActionDecoder, ActionDiT, ActionEncoder, StateEncoder
 from openxam.model.schedulers.factory import build_video_schedulers
 from openxam.model.schedulers.scheduler_continuous import ContinuousFlowMatchScheduler
-from openxam.towers.action import ActionTower
+from openxam.towers.action import ACTION, ActionTower
+from openxam.towers.unified import UnifiedTower
 from openxam.towers.wan import FUTURE_FRAMES, WanTower
 
 from .model import XAMModel
@@ -40,11 +42,22 @@ def video_visibility(spec: ModelSpec) -> str:
     return "first_frame_causal"
 
 
+def video_clips(spec: ModelSpec) -> tuple[tuple[str, str], ...]:
+    """The video tower's clips: each a current-frame stream and the future-frames stream after it."""
+    streams = [stream for stream in spec.streams.values() if stream.tower == "video"]
+    firsts = [stream.name for stream in streams if stream.data == ("first_frame",)]
+    futures = [stream.name for stream in streams if stream.data == ("future_frames",)]
+    if len(firsts) != len(futures):
+        raise ValueError(f"Every current frame needs future frames after it, got {firsts} and {futures}.")
+    return tuple(zip(firsts, futures))
+
+
 def build_model(
     spec: Union[str, Path, ModelSpec],
     *,
     backbone: Mapping[str, Any],
-    action_dit_config: Mapping[str, Any],
+    action_dit_config: Optional[Mapping[str, Any]] = None,
+    action_dim: Optional[int] = None,
     action_dit_pretrained_path: Optional[str] = None,
     state_dim: Optional[int] = None,
     projector_hidden_dim: int = 64,
@@ -72,7 +85,86 @@ def build_model(
             f"is configured for {video.video_attention_mask_mode!r}."
         )
 
-    start = spec.towers["action"].options.get("init", "from_video")
+    video_config = dict(video_scheduler or {})
+    train_video, infer_video = build_video_schedulers(
+        family=video.scheduler_family,
+        config=config.get("video_scheduler"),
+        num_train_timesteps=int(video_config.get("num_train_timesteps", 1000)),
+        train_shift=float(video_config.get("train_shift", 5.0)),
+        infer_shift=float(video_config.get("infer_shift", 5.0)),
+    )
+    noise_first_frame = bool(spec.towers["video"].options.get("noise_first_frame", False))
+    if spec.streams[ACTION].tower == "video":
+        if action_dim is None or state_dim is None:
+            raise ValueError("A single tower needs `action_dim` and `state_dim`.")
+        width, projector = int(video.hidden_dim), int(projector_hidden_dim)
+        parts = (
+            StateEncoder(state_dim=int(state_dim), hidden_dim=width, projector_hidden_dim=projector),
+            ActionEncoder(action_dim=int(action_dim), hidden_dim=width, projector_hidden_dim=projector),
+            ActionDecoder(hidden_dim=width, action_dim=int(action_dim), projector_hidden_dim=projector),
+        )
+        towers = {
+            "video": UnifiedTower(
+                video,
+                components.vae,
+                *(part.to(device=device, dtype=torch_dtype) for part in parts),
+                train_video,
+                infer_video,
+                action_dim=int(action_dim),
+                noise_first_frame=noise_first_frame,
+            )
+        }
+    else:
+        if action_dit_config is None:
+            raise ValueError("A separate action tower needs `action_dit_config`.")
+        towers = {
+            "video": WanTower(
+                video,
+                components.vae,
+                train_video,
+                infer_video,
+                clips=video_clips(spec),
+                noise_first_frame=noise_first_frame,
+            ),
+            "action": _action_tower(
+                spec,
+                video,
+                action_dit_config,
+                action_dit_pretrained_path,
+                state_dim,
+                projector_hidden_dim,
+                skip_dit_load_from_pretrain,
+                action_scheduler,
+                device,
+                torch_dtype,
+            ),
+        }
+
+    return XAMModel(
+        spec,
+        towers,
+        text_encoder=components.text_encoder,
+        tokenizer=components.tokenizer,
+        backbone_name=config["name"],
+        model_variant=model_variant,
+        device=device,
+        torch_dtype=torch_dtype,
+    )
+
+
+def _action_tower(
+    spec: ModelSpec,
+    video: Any,
+    action_dit_config: Mapping[str, Any],
+    action_dit_pretrained_path: Optional[str],
+    state_dim: Optional[int],
+    projector_hidden_dim: int,
+    skip_dit_load_from_pretrain: bool,
+    action_scheduler: Optional[Mapping[str, Any]],
+    device: str,
+    torch_dtype: torch.dtype,
+) -> ActionTower:
+    start = spec.towers[ACTION].options.get("init", "from_video")
     if start not in ("from_video", "random"):
         raise ValueError(f"Unknown action tower `init`: {start!r}")
     action = ActionDiT.from_pretrained(
@@ -82,23 +174,7 @@ def build_model(
         device=device,
         torch_dtype=torch_dtype,
     )
-    for name, first, second in (
-        ("num_heads", action.num_heads, video.num_heads),
-        ("attn_head_dim", action.attn_head_dim, video.attn_head_dim),
-        ("num_layers", len(action.blocks), len(video.blocks)),
-    ):
-        if int(first) != int(second):
-            raise ValueError(f"The action tower's {name} must match the video tower: {first} and {second}.")
-
-    video_config = dict(video_scheduler or {})
     action_config = dict(action_scheduler or {})
-    train_video, infer_video = build_video_schedulers(
-        family=video.scheduler_family,
-        config=config.get("video_scheduler"),
-        num_train_timesteps=int(video_config.get("num_train_timesteps", 1000)),
-        train_shift=float(video_config.get("train_shift", 5.0)),
-        infer_shift=float(video_config.get("infer_shift", 5.0)),
-    )
     steps = int(action_config.get("num_train_timesteps", 1000))
     train_action = ContinuousFlowMatchScheduler(steps, float(action_config.get("train_shift", 5.0)))
     infer_action = ContinuousFlowMatchScheduler(steps, float(action_config.get("infer_shift", 5.0)))
@@ -110,17 +186,7 @@ def build_model(
             hidden_dim=int(action.hidden_dim),
             projector_hidden_dim=int(projector_hidden_dim),
         ).to(device=device, dtype=torch_dtype)
-
-    return XAMModel(
-        spec,
-        {
-            "video": WanTower(video, components.vae, train_video, infer_video),
-            "action": ActionTower(action, state_encoder, train_action, infer_action),
-        },
-        text_encoder=components.text_encoder,
-        tokenizer=components.tokenizer,
-        backbone_name=config["name"],
-        model_variant=model_variant,
-        device=device,
-        torch_dtype=torch_dtype,
-    )
+    projector = None
+    if ACTION in spec.feature_reads:
+        projector = nn.Linear(int(video.hidden_dim), int(action.text_dim)).to(device=device, dtype=torch_dtype)
+    return ActionTower(action, state_encoder, train_action, infer_action, projector)

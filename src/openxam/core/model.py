@@ -36,7 +36,7 @@ from openxam.utils.logging_config import get_logger
 
 from .driver import attention_structure, run_layers
 from .plan import Plan, Segment, plan_infer, plan_train, sample_weights
-from .spec import FLOW, NOISY, ModelSpec
+from .spec import FLOW, HOLD, NOISY, ContextRead, ModelSpec
 
 logger = get_logger(__name__)
 
@@ -54,7 +54,32 @@ class TowerStack(nn.Module):
         self.mixtures = nn.ModuleDict({name: tower.dit for name, tower in towers.items()})
 
 
+def _check_towers(towers: Mapping[str, Tower], plans: Sequence[Plan]) -> None:
+    """What the spec cannot check: the shapes of the towers actually built."""
+    for plan in plans:
+        for group in plan.groups:
+            shapes = {(towers[name].num_layers, towers[name].num_heads, towers[name].head_dim) for name in group}
+            if len(shapes) > 1:
+                raise ValueError(
+                    f"Towers {list(group)} attend to each other, so they need the same layers, heads and "
+                    f"head size, got {sorted(shapes)}."
+                )
+        for reader, read in plan.features.items():
+            if not 0 <= read.layer < towers[read.source].num_layers:
+                raise ValueError(
+                    f"Tower {reader} reads layer {read.layer} of {read.source}, which has "
+                    f"{towers[read.source].num_layers} layers."
+                )
+
+
 class XAMModel(nn.Module):
+    """A model described by a spec.
+
+    When towers attend to each other, the trained weights sit under ``mot`` as in EasyWAM's
+    MoT classes. Otherwise each tower names its parts under ``dit``, as in EasyWAM's Unified
+    and Hidden classes.
+    """
+
     inference_compile_targets = ("_predict_step",)
 
     def __init__(
@@ -74,36 +99,51 @@ class XAMModel(nn.Module):
         super().__init__()
         spec.validate()
         self.spec = spec
+        self.train_plans = {mode.name: plan_train(spec, mode) for mode in spec.train}
+        self.infer_plans = {program: plan_infer(spec, program) for program in spec.infer}
+        plans = [*self.train_plans.values(), *(plan for stages in self.infer_plans.values() for plan in stages)]
+        _check_towers(towers, plans)
+        mixed = any(len(group) > 1 for plan in plans for group in plan.groups)
         video, action = towers.get("video"), towers.get("action")
 
         # Registered in this order so parameter names match EasyWAM's, which LoRA checkpoints rely on.
-        self.video_expert = None if video is None else video.dit
-        self.action_expert = None if action is None else action.dit
-        self.mot = TowerStack(towers)
-        self.dit = self.mot
+        if mixed:
+            self.checkpoint_key = "mot"
+            self.video_expert = video.dit
+            self.action_expert = action.dit
+            self.mot = TowerStack(towers)
+            self.dit = self.mot
+        else:
+            self.checkpoint_key = "dit"
+            self.dit = nn.ModuleDict(
+                {name: part for tower in towers.values() for name, part in tower.checkpoint_parts().items()}
+            )
         self.vae = getattr(video, "vae", None)
         self.text_encoder = text_encoder
         self.tokenizer = tokenizer
-        self.state_encoder = getattr(action, "state_encoder", None)
+        self.state_encoder = getattr(action, "state_encoder", None) if mixed else None
         self.towers = nn.ModuleDict(dict(towers))
 
-        self.backbone_name = backbone_name or getattr(self.video_expert, "backbone_name", None)
+        self.backbone_name = backbone_name or getattr(self.video_dit, "backbone_name", None)
         self.model_variant = model_variant
         self.state_position = "sequence"
         self.device = torch.device(device)
         self.torch_dtype = torch_dtype
-        self.act_program = act_program
+        # A model that cannot act without imagining runs its joint program to act.
+        self.act_program = act_program if act_program in spec.infer else imagine_program
         self.imagine_program = imagine_program
         self.inference_cross_kv_reuse = False
-        self.train_plans = {mode.name: plan_train(spec, mode) for mode in spec.train}
-        self.infer_plans = {program: plan_infer(spec, program) for program in spec.infer}
         self.mode_names = list(self.train_plans)
         shares = sample_weights(spec)
         self.mode_weights = torch.tensor([shares[name] for name in self.mode_names])
 
     @property
     def video_dit(self) -> Optional[nn.Module]:
-        return self.video_expert
+        return self.towers["video"].dit if "video" in self.towers else None
+
+    @property
+    def action_dit(self) -> Optional[nn.Module]:
+        return self.towers["action"].dit if "action" in self.towers else None
 
     def train(self, mode: bool = True) -> "XAMModel":
         super().train(mode)
@@ -134,19 +174,50 @@ class XAMModel(nn.Module):
             mask = mask.to(device=self.device, dtype=torch.bool, non_blocking=True)
         return Context(tokens, mask)
 
+    def _feature_context(
+        self,
+        reader: str,
+        read: ContextRead,
+        features: Tensor,
+        mask: Optional[Tensor],
+        reuse_kv: bool = False,
+    ) -> Context:
+        """Another tower's features, as the context ``reader`` attends to."""
+        tower = self.towers[reader]
+        projected = tower.project_features(features if read.grad else features.detach())
+        kv_cache = tower.dit.build_cross_attention_kv_cache(projected) if reuse_kv else None
+        return Context(projected, prepare_key_padding_mask(mask), True, kv_cache)
+
     def training_loss(self, sample: Mapping[str, Any]) -> tuple[Tensor, dict[str, Tensor]]:
         plan = self._next_plan()
         towers = self._towers_of(plan.active_towers)
-        context = self._training_context(sample)
+        text = self._training_context(sample)
 
         batches = {name: tower.prepare(sample) for name, tower in towers.items()}
         timesteps: dict = {}
         for name, tower in towers.items():
             tower.add_noise(batches[name], plan, timesteps)
+        for name, tower in towers.items():
+            tower.add_optional_noise(batches[name], plan)
 
-        states = {name: tower.embed(batches[name], context) for name, tower in towers.items()}
-        segments, mask = attention_structure(plan, states, self.device)
-        tokens, _ = run_layers(towers, states, mask, segments)
+        states: dict[str, TowerState] = {}
+        tokens: dict[str, Tensor] = {}
+        features: dict[str, Tensor] = {}
+        for group in plan.groups:
+            here = {}
+            for name in group:
+                read = plan.features.get(name)
+                context = text
+                if read is not None:
+                    source = read.source
+                    mask = towers[source].feature_mask(batches[source], states[source])
+                    context = self._feature_context(name, read, features[source], mask)
+                here[name] = towers[name].embed(batches[name], context)
+            segments, mask = attention_structure(plan, here, self.device)
+            out, _, found = run_layers(self._towers_of(group), here, mask, segments, capture=plan.captures(group))
+            states.update(here)
+            tokens.update(out)
+            features.update(found)
 
         total: Optional[Tensor] = None
         logs: dict[str, Tensor] = {}
@@ -193,7 +264,10 @@ class XAMModel(nn.Module):
 
     def _tower_contexts(self, context: Tensor, mask: Optional[Tensor]) -> dict[str, Context]:
         contexts = {}
+        readers = self.spec.feature_reads
         for name, tower in self.towers.items():
+            if name in readers:
+                continue  # it reads another tower's features, which exist only once that tower ran
             projected = tower.project_context(context)
             kv_cache = None
             if self.inference_cross_kv_reuse and projected is not None:
@@ -237,8 +311,10 @@ class XAMModel(nn.Module):
             "context": self._tower_contexts(context, context_mask),
         }
         if proprio is not None:
+            if proprio.ndim == 3:
+                proprio = proprio[:, 0]  # a history of states: the model reads the first one
             if proprio.ndim != 2 or proprio.shape[0] != batch_size:
-                raise ValueError(f"`proprio` must be [B, D], got {tuple(proprio.shape)}")
+                raise ValueError(f"`proprio` must be [B, D] or [B, T, D], got {tuple(proprio.shape)}")
             request["state"] = proprio.to(device=self.device, dtype=self.torch_dtype)
         for tower in self.towers.values():
             tower.encode_request(request)
@@ -247,16 +323,27 @@ class XAMModel(nn.Module):
     def _prefill(
         self,
         plan: Plan,
-        fixed: Mapping[str, TowerState],
-        moving: Mapping[str, TowerState],
+        group: tuple[str, ...],
+        moving: tuple[str, ...],
+        request: Mapping[str, Any],
+        latents: Mapping[str, Tensor],
+        timesteps: Mapping[str, Tensor],
+        states: Mapping[str, TowerState],
     ) -> tuple[StructuredAttentionMask, tuple[Segment, ...], Optional[list]]:
-        """Compile the attention structure and run the towers that stay fixed, once."""
-        segments, mask = attention_structure(plan, {**fixed, **moving}, self.device)
-        fixed_length = sum(sum(state.lengths.values()) for state in fixed.values())
+        """Compile a group's attention structure and run its towers that stay fixed, once."""
+        fixed = {
+            name: self.towers[name].embed_step(plan, request, latents, timesteps)
+            for name in group
+            if name not in moving
+        }
+        segments, mask = attention_structure(plan, {**fixed, **states}, self.device)
         if not fixed:
             return mask, segments, None
-        _, cached_kv = run_layers(
-            self._towers_of(plan.cached_towers),
+        if tuple(fixed) != group[: len(fixed)]:
+            raise NotImplementedError("Towers that stay fixed must come first in the sequence.")
+        fixed_length = sum(sum(state.lengths.values()) for state in fixed.values())
+        _, cached_kv, _ = run_layers(
+            self._towers_of(tuple(fixed)),
             fixed,
             mask.slice(0, fixed_length, 0, fixed_length),
             tuple(segment for segment in segments if segment.query_end <= fixed_length),
@@ -272,34 +359,51 @@ class XAMModel(nn.Module):
         self,
         plan: Plan,
         moving: Sequence[str],
-        denoised: Sequence[str],
+        solved: Sequence[str],
         states: Mapping[str, TowerState],
         mask: StructuredAttentionMask,
         segments: Sequence[Segment],
         cached_kv: Optional[list],
-    ) -> dict[str, Tensor]:
-        tokens, _ = run_layers(self._towers_of(moving), states, mask, segments, cached_kv=cached_kv)
-        return {
+        capture: Mapping[str, int],
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor]]:
+        tokens, _, features = run_layers(
+            self._towers_of(moving),
+            states,
+            mask,
+            segments,
+            cached_kv=cached_kv,
+            capture=capture,
+            stop_after_capture=not solved,
+        )
+        predictions = {
             stream: self.towers[plan.towers[stream]].readout(
                 stream, tokens[plan.towers[stream]], states[plan.towers[stream]]
             )
-            for stream in denoised
+            for stream in solved
         }
+        return predictions, features
 
     def _run_stage(
         self,
         plan: Plan,
         request: Mapping[str, Any],
+        outputs: Mapping[str, Tensor],
         steps: int,
         sigma_shift: Optional[float],
     ) -> dict[str, Tensor]:
-        if plan.use:
-            raise NotImplementedError("Stages that reuse earlier results are not migrated yet.")
-        moving = [name for name in plan.active_towers if name not in plan.cached_towers]
-        denoised = [stream for stream in plan.streams if plan.states[stream] == NOISY]
-        owner = {stream: self.towers[plan.towers[stream]] for stream in denoised}
+        """One stage of an inference program.
 
-        latents = {stream: owner[stream].start(stream, request) for stream in denoised}
+        Streams being denoised move every step. Held streams stay at the first noise level,
+        and streams fed by ``use`` are clean. A tower reading another tower's features reads
+        them once, at the first step.
+        """
+        request = {**request, "context": dict(request["context"])}
+        size = request["batch_size"]
+        started = [stream for stream in plan.streams if plan.states[stream] in (NOISY, HOLD)]
+        solved = [stream for stream in started if plan.states[stream] == NOISY]
+        owner = {stream: self.towers[plan.towers[stream]] for stream in started}
+
+        latents = {stream: owner[stream].start(stream, request) for stream in started}
         schedules = {
             stream: owner[stream].infer_scheduler.build_inference_schedule(
                 num_inference_steps=steps,
@@ -307,28 +411,46 @@ class XAMModel(nn.Module):
                 dtype=latents[stream].dtype,
                 shift_override=sigma_shift,
             )
-            for stream in denoised
+            for stream in started
         }
-        fixed = {name: self.towers[name].embed_step(request, {}, {}) for name in plan.cached_towers}
+        for tied in plan.tie:
+            for stream in tied[1:]:
+                schedules[stream] = schedules[tied[0]]
 
-        prepared = None
+        def level(stream: str, step: int) -> Tensor:
+            return schedules[stream][0][step].expand(size).to(dtype=latents[stream].dtype, device=self.device)
+
+        fixed_levels = {stream: level(stream, 0) for stream in started if stream not in solved}
+        for target, source in plan.use.items():
+            latents[target] = outputs[source]
+            fixed_levels[target] = outputs[source].new_zeros(size)
+
+        prepared: dict[tuple[str, ...], tuple] = {}
         for step in range(steps):
-            timesteps = {
-                stream: schedules[stream][0][step]
-                .expand(request["batch_size"])
-                .to(dtype=latents[stream].dtype, device=self.device)
-                for stream in denoised
-            }
-            states = {name: self.towers[name].embed_step(request, latents, timesteps) for name in moving}
-            if prepared is None:
-                prepared = self._prefill(plan, fixed, states)
-            predictions = self._predict_step(plan, moving, denoised, states, *prepared)
-            for stream in denoised:
-                stepped = owner[stream].infer_scheduler.step(
-                    predictions[stream], schedules[stream][1][step], latents[stream]
-                )
+            levels = {**fixed_levels, **{stream: level(stream, step) for stream in solved}}
+            predictions: dict[str, Tensor] = {}
+            for group in plan.groups:
+                moving = tuple(name for name in group if name not in plan.cached_towers)
+                capture = plan.captures(group) if step == 0 else {}
+                if not moving:
+                    if not capture:
+                        continue  # nothing here changes, and nobody reads it
+                    moving = group  # runs once, for the features another tower reads
+                states = {name: self.towers[name].embed_step(plan, request, latents, levels) for name in moving}
+                if group not in prepared:
+                    prepared[group] = self._prefill(plan, group, moving, request, latents, levels, states)
+                here = [stream for stream in solved if plan.towers[stream] in moving]
+                found, features = self._predict_step(plan, moving, here, states, *prepared[group], capture)
+                predictions.update(found)
+                for reader, read in plan.features.items():
+                    if read.source in features:
+                        request["context"][reader] = self._feature_context(
+                            reader, read, features[read.source], None, self.inference_cross_kv_reuse
+                        )
+            for stream in solved:
+                stepped = owner[stream].infer_scheduler.step(predictions[stream], schedules[stream][1][step], latents[stream])
                 latents[stream] = owner[stream].after_step(stream, stepped, request)
-        return latents
+        return {stream: latents[stream] for stream in solved}
 
     def _run_program(
         self,
@@ -339,7 +461,7 @@ class XAMModel(nn.Module):
     ) -> dict[str, Tensor]:
         outputs: dict[str, Tensor] = {}
         for plan in self.infer_plans[program]:
-            outputs.update(self._run_stage(plan, request, num_inference_steps or plan.steps, sigma_shift))
+            outputs.update(self._run_stage(plan, request, outputs, num_inference_steps or plan.steps, sigma_shift))
         return outputs
 
     @torch.inference_mode()
@@ -435,7 +557,7 @@ class XAMModel(nn.Module):
             prompt=[prompt] if prompt is not None else None,
             input_image=batch_single_tensor(input_image, 3, "input_image"),
             action_horizon=action_horizon,
-            proprio=batch_single_state(proprio, history=False),
+            proprio=batch_single_state(proprio, history=True),
             context=batch_single_tensor(context, 2, "context"),
             context_mask=batch_single_tensor(context_mask, 1, "context_mask"),
             negative_prompt=negative_prompt,
@@ -474,7 +596,7 @@ class XAMModel(nn.Module):
             num_video_frames=num_video_frames,
             action_horizon=action_horizon,
             action=batch_single_tensor(action, 2, "action"),
-            proprio=batch_single_state(proprio, history=False),
+            proprio=batch_single_state(proprio, history=True),
             context=batch_single_tensor(context, 2, "context"),
             context_mask=batch_single_tensor(context_mask, 1, "context_mask"),
             negative_prompt=negative_prompt,
@@ -532,24 +654,30 @@ class XAMModel(nn.Module):
     def save_checkpoint(self, path: str, optimizer: Any = None, step: Optional[int] = None) -> None:
         from openxam.model.component.lora import build_lora_checkpoint_payload, has_lora
 
-        is_lora_model = has_lora(self.video_dit)
-        if is_lora_model:
+        if has_lora(self.video_dit):
             payload = build_lora_checkpoint_payload(self, step=step)
         else:
             payload = {
-                "mot": self.mot.state_dict(),
+                self.checkpoint_key: self.dit.state_dict(),
                 "step": step,
                 "torch_dtype": str(self.torch_dtype),
                 "backbone_name": self.backbone_name,
-                "model_variant": self.model_variant,
             }
-            if self.state_encoder is not None:
-                payload["state_encoder"] = self.state_encoder.state_dict()
+            if self.checkpoint_key == "mot":
+                payload["model_variant"] = self.model_variant
+                if self.state_encoder is not None:
+                    payload["state_encoder"] = self.state_encoder.state_dict()
         payload["state_position"] = self.state_position
         payload["action_config"] = policy_action_config(self)
         if optimizer is not None:
             payload["optimizer"] = optimizer.state_dict()
         torch.save(payload, path)
+
+    @staticmethod
+    def _load_weights(module: nn.Module, state: Mapping[str, Tensor]) -> None:
+        from openxam.model.component.lora import load_standard_state_dict
+
+        load_standard_state_dict(module, state, strict=False)
 
     def load_checkpoint(self, path: str, optimizer: Any = None, merge_lora: bool = False) -> dict:
         payload = torch.load(path, map_location="cpu", mmap=True)
@@ -560,24 +688,23 @@ class XAMModel(nn.Module):
             if saved is not None and saved != current:
                 raise ValueError(f"Checkpoint {key} {saved!r} does not match this model's {current!r}.")
 
-        if payload.get("format") == "trainable_lora":
+        lora = payload.get("format") == "trainable_lora"
+        if lora:
             from openxam.model.component.lora import load_lora_model_checkpoint_state
 
             load_lora_model_checkpoint_state(self, payload, merge_after_load=bool(merge_lora))
-        elif "mot" in payload:
-            if any(hasattr(module, "_easywam_lora_config") for module in self.mot.modules()):
-                from openxam.model.component.lora import load_standard_state_dict
-
-                load_standard_state_dict(self.mot, payload["mot"], strict=False)
-            else:
-                self.mot.load_state_dict(payload["mot"], strict=False)
-            if self.state_encoder is not None:
-                if "state_encoder" in payload:
-                    self.state_encoder.load_state_dict(payload["state_encoder"], strict=True)
-                else:
-                    logger.warning("Checkpoint has no `state_encoder` weights; keeping current ones.")
+        elif self.checkpoint_key in payload:
+            self._load_weights(self.dit, payload[self.checkpoint_key])
+        elif "dit" in payload:
+            logger.warning("Loading an older `dit` checkpoint into the video tower only.")
+            self._load_weights(self.video_dit, payload["dit"])
         else:
-            raise ValueError(f"Checkpoint has no `mot` weights: {path}")
+            raise ValueError(f"Checkpoint has no `{self.checkpoint_key}` weights: {path}")
+        if not lora and self.state_encoder is not None:
+            if "state_encoder" in payload:
+                self.state_encoder.load_state_dict(payload["state_encoder"], strict=True)
+            else:
+                logger.warning("Checkpoint has no `state_encoder` weights; keeping current ones.")
 
         if optimizer is not None and "optimizer" in payload:
             optimizer.load_state_dict(payload["optimizer"])

@@ -11,7 +11,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping
 
-from .spec import ABSENT, CAUSAL, FRAME_CAUSAL, FULL, ModelSpec, Read, Stage, TrainMode
+from .spec import (
+    ABSENT,
+    CAUSAL,
+    FRAME_CAUSAL,
+    FULL,
+    ContextRead,
+    ModelSpec,
+    Read,
+    Stage,
+    TrainMode,
+    attention_groups,
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +70,8 @@ class Plan:
     static: frozenset = frozenset()
     use: Mapping[str, str] = field(default_factory=dict)
     steps: int = 0
+    features: Mapping[str, ContextRead] = field(default_factory=dict)
+    sometimes: Mapping[str, float] = field(default_factory=dict)
 
     def spans(self, lengths: Mapping[str, int]) -> dict[str, tuple[int, int]]:
         """Token range of every live stream. A stream of length zero has no range."""
@@ -127,6 +140,30 @@ class Plan:
             if all(stream in self.static for stream in self.streams if self.towers[stream] == tower)
         )
 
+    @property
+    def groups(self) -> tuple[tuple[str, ...], ...]:
+        """Towers that share attention, in the order they run.
+
+        A tower that reads a layer of another tower has to wait for it, so it runs later.
+        """
+        waiting = attention_groups(self.active_towers, self.rows, self.towers)
+        ordered: list[tuple[str, ...]] = []
+        finished: set[str] = set()
+        while waiting:
+            ready = next(
+                group
+                for group in waiting
+                if all(self.features[tower].source in finished for tower in group if tower in self.features)
+            )
+            waiting.remove(ready)
+            ordered.append(ready)
+            finished.update(ready)
+        return tuple(ordered)
+
+    def captures(self, towers: "tuple[str, ...]") -> dict[str, int]:
+        """The layers of these towers that another tower reads."""
+        return {read.source: read.layer for read in self.features.values() if read.source in towers}
+
 
 def _live_rows(
     spec: ModelSpec,
@@ -147,6 +184,11 @@ def _live_rows(
 
 def _towers(spec: ModelSpec, live: tuple[str, ...]) -> dict[str, str]:
     return {stream: spec.streams[stream].tower for stream in live}
+
+
+def _features(spec: ModelSpec, live: tuple[str, ...]) -> dict[str, ContextRead]:
+    towers = set(_towers(spec, live).values())
+    return {tower: read for tower, read in spec.feature_reads.items() if tower in towers}
 
 
 def static_streams(rows: Mapping[str, tuple[Read, ...]], changing: tuple[str, ...]) -> frozenset:
@@ -174,6 +216,8 @@ def plan_train(spec: ModelSpec, mode: "str | TrainMode") -> Plan:
         states={stream: mode.state(stream) for stream in live},
         towers=_towers(spec, live),
         tie=mode.tie,
+        features=_features(spec, live),
+        sometimes=dict(mode.sometimes_noisy),
     )
 
 
@@ -191,6 +235,7 @@ def plan_stage(spec: ModelSpec, program: str, index: int) -> Plan:
         static=static_streams(rows, stage.denoise),
         use=dict(stage.use),
         steps=stage.steps,
+        features=_features(spec, live),
     )
 
 

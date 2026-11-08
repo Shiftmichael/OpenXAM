@@ -77,20 +77,35 @@ def run_layers(
     *,
     cached_kv: Optional[Sequence[tuple[Tensor, Tensor]]] = None,
     keep_kv: bool = False,
-) -> tuple[dict[str, Tensor], list[tuple[Tensor, Tensor]]]:
+    capture: Optional[Mapping[str, int]] = None,
+    stop_after_capture: bool = False,
+) -> tuple[dict[str, Tensor], list[tuple[Tensor, Tensor]], dict[str, Tensor]]:
     """Advance the towers through every layer, sharing one attention per layer.
 
     ``cached_kv`` holds the keys and values of towers that sit in front of these ones in
     the sequence and already ran. ``mask`` must then cover only the rows of ``towers``.
     With ``keep_kv`` the keys and values of every layer come back for later reuse.
+    ``capture`` names a layer per tower whose output comes back as that tower's features,
+    and with ``stop_after_capture`` the layers after the last of them are skipped.
+
+    A tower attending only to itself runs its blocks whole. Its rotary embedding is then
+    computed in the model's precision rather than in float32, as the EasyWAM classes do.
     """
     names = list(towers)
     first = towers[names[0]]
+    capture = capture or {}
     has_cut = any(segment.no_grad for segment in segments)
+    alone = len(names) == 1 and cached_kv is None and not keep_kv and not has_cut
     use_checkpoint = any(tower.use_gradient_checkpointing for tower in towers.values())
+    layers = max(capture.values()) + 1 if capture and stop_after_capture else first.num_layers
     kept: list[tuple[Tensor, Tensor]] = []
+    features: dict[str, Tensor] = {}
 
-    def one_layer(layer: int, *tokens: Tensor) -> tuple[Tensor, ...]:
+    def whole_layer(layer: int, x: Tensor) -> tuple[Tensor]:
+        visible = None if mask.is_fully_valid else mask
+        return (first.run_block(layer, x, visible, states[names[0]]),)
+
+    def split_layer(layer: int, *tokens: Tensor) -> tuple[Tensor, ...]:
         queries, keys, values, carries = [], [], [], []
         for name, x in zip(names, tokens):
             q, k, v, carry = towers[name].qkv(layer, x, states[name])
@@ -124,10 +139,12 @@ def run_layers(
             start = end
         return tuple(outputs)
 
+    one_layer = whole_layer if alone else split_layer
     tokens = tuple(states[name].tokens for name in names)
-    for layer in range(first.num_layers):
+    for layer in range(layers):
         if use_checkpoint and torch.is_grad_enabled():
             tokens = checkpoint(one_layer, layer, *tokens, use_reentrant=False)
         else:
             tokens = one_layer(layer, *tokens)
-    return dict(zip(names, tokens)), kept
+        features.update({name: x for name, x in zip(names, tokens) if capture.get(name) == layer})
+    return dict(zip(names, tokens)), kept, features

@@ -96,6 +96,30 @@ def test_the_trainer_trains_and_saves_xam_model() -> None:
         assert torch.equal(tiny.act(fresh, sample), tiny.act(trained, sample))
 
 
+def test_the_trainer_trains_and_saves_every_structure() -> None:
+    import test_parity_structures as structures
+
+    for name in structures.STRUCTURES:
+        AcceleratorState._reset_state(reset_partial_state=True)
+        model = structures.built(name)
+        before = {key: value.clone() for key, value in model.dit.state_dict().items()}
+        with tempfile.TemporaryDirectory() as folder:
+            accelerator = Accelerator(cpu=True, mixed_precision="no", step_scheduler_with_optimizer=False)
+            trainer = EasyWAMTrainer(model, TinyDataset(), None, cfg=settings(folder, steps=2), accelerator=accelerator)
+            trainer.train()
+            accelerator.end_training()
+
+            trained = accelerator.unwrap_model(trainer.model)
+            moved = [key for key, value in trained.dit.state_dict().items() if not torch.equal(value, before[key])]
+            assert len(moved) > 10, (name, len(moved))
+            fresh = structures.built(name)
+            fresh.towers["video"].vae.load_state_dict(trained.towers["video"].vae.state_dict())
+            sample = tiny.batch()
+            assert not torch.equal(structures.act(fresh, sample), structures.act(trained, sample)), name
+            fresh.load_checkpoint(str(sorted(Path(folder).rglob("*.pt"))[-1]))
+            assert torch.equal(structures.act(fresh, sample), structures.act(trained, sample)), name
+
+
 def trainer_for(folder: str, steps: int, save_every: int, resume=None) -> tuple[EasyWAMTrainer, Accelerator]:
     AcceleratorState._reset_state(reset_partial_state=True)
     accelerator = Accelerator(cpu=True, mixed_precision="no", step_scheduler_with_optimizer=False)

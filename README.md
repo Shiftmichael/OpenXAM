@@ -6,7 +6,7 @@
 
 Vision-language-action models (VLAs) and world-action models (WAMs) differ mainly in what information reaches the action generator: a VLM's knowledge, a video model's sense of dynamics, a written plan, optical flow, touch. OpenXAM treats that X as a setting. The goal is one codebase where a lab can fine-tune, run and evaluate these models on a modest GPU budget, starting from public pretrained weights.
 
-> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and MoT matches EasyWAM-MoT exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_fastwam_wan22` to run it. It has not been tried with real weights or on a GPU yet, and the other structures still use the EasyWAM classes.
+> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and all five EasyWAM structures (MoT, MoT-Joint, MoT-IDM, Unified and Hidden) match the EasyWAM classes exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_<structure>_wan22` to run one, with `fastwam`, `mot_joint`, `mot_idm`, `unified` or `hidden`. They have not been tried with real weights or on a GPU yet.
 
 ## Design
 
@@ -41,7 +41,7 @@ Everything below comes from EasyWAM and has not been rerun in this repository. E
 ## Roadmap
 
 - [x] Configs for towers, read table, noise plan and losses, with checks that run before any GPU time
-- [ ] Multi-tower core running every structure (MoT is done, see [the design note](docs/design/multi_tower_core_zh.md))
+- [ ] Multi-tower core running every structure (all five run on Wan2.2, see [the design note](docs/design/multi_tower_core_zh.md); Cosmos is untested and FLUX stays on the EasyWAM classes)
 - [ ] VLM tower and a VLA path
 - [ ] Given-action video prediction
 - [ ] More sources: future features, subgoal images, optical flow, text or code plans
@@ -73,9 +73,10 @@ Tests that need neither a GPU nor a simulator:
 python tests/test_package_imports.py
 python tests/test_core_spec.py
 python tests/test_core_plan.py
-python tests/test_parity_mot.py     # needs PyTorch
-python tests/test_trainer_smoke.py  # needs PyTorch and Accelerate
-python tests/test_hydra_configs.py  # needs Hydra
+python tests/test_parity_mot.py         # needs PyTorch
+python tests/test_parity_structures.py  # needs PyTorch
+python tests/test_trainer_smoke.py      # needs PyTorch and Accelerate
+python tests/test_hydra_configs.py      # needs Hydra
 ```
 
 ## Documentation

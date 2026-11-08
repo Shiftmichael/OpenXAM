@@ -1,0 +1,13 @@
+defaults:
+  - backbone: wan22
+  - _self_
+
+_target_: openxam.runtime.create_xam
+spec: unified_wan22
+model_variant: unified
+action_dim: ${data.train.processor.action_output_dim}
+state_dim: ${data.train.processor.proprio_output_dim}
+projector_hidden_dim: 64
+skip_dit_load_from_pretrain: false
+
+video_scheduler: ${model.backbone.video_scheduler}

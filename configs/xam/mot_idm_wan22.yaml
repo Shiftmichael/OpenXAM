@@ -1,6 +1,8 @@
 # EasyWAM-MoT-IDM: generate video first, then act on a clean copy of it.
+# `noise_first_frame` draws noise for the current frame too and throws it away, as EasyWAM's
+# MoT classes do. It changes only which random numbers land where.
 towers:
-  video:  {kind: wan22, train: full, context: [text]}
+  video:  {kind: wan22, train: full, context: [text], noise_first_frame: true}
   action: {kind: action_dit, hidden_dim: 1024, init: from_video, train: full, context: [text]}
 
 streams:

@@ -26,7 +26,9 @@ def cache_static_method(*attributes):
                 for name in path.split("."):
                     value = getattr(value, name)
                 settings.append(_key(value))
-            key = (args, tuple(sorted(kwargs.items())), tuple(settings))
+            # Tensors made in inference mode cannot be saved for backward, so a result cached
+            # during evaluation must not be handed to a training step.
+            key = (args, tuple(sorted(kwargs.items())), tuple(settings), torch.is_inference_mode_enabled())
             cached = getattr(self, cache_name, None)
             if cached is not None and cached[0] == key:
                 return cached[1]

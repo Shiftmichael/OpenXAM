@@ -140,6 +140,30 @@ def test_a_stream_must_read_something() -> None:
     assert "mode" in codes(config)
 
 
+def test_a_tower_reads_one_context() -> None:
+    config = raw("hidden_wan22")
+    config["towers"]["action"]["context"].append("text")
+    assert "context" in codes(config)
+
+
+def test_feature_reads_cannot_go_round() -> None:
+    config = raw("hidden_wan22")
+    config["towers"]["video"]["context"] = [{"from": "action", "layer": 1}]
+    assert "context" in codes(config)
+
+
+def test_a_tower_cannot_wait_for_a_tower_it_attends_to() -> None:
+    config = raw("hidden_wan22")
+    config["reads"]["action"] = ["obs", "action", "state"]
+    assert "context" in codes(config)
+
+
+def test_features_of_an_absent_tower() -> None:
+    config = raw("hidden_wan22")
+    config["infer"]["act"][0] = {"denoise": ["action"], "absent": ["obs", "future"], "steps": 10}
+    assert "unseen" in codes(config)
+
+
 if __name__ == "__main__":
     for name, check in sorted(globals().items()):
         if name.startswith("test_"):

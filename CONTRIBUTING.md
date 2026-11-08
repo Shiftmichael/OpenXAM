@@ -20,6 +20,7 @@ python tests/test_package_imports.py
 python tests/test_core_spec.py
 python tests/test_core_plan.py
 python tests/test_parity_mot.py
+python tests/test_parity_structures.py
 python tests/test_trainer_smoke.py
 python tests/test_hydra_configs.py
 git diff --check
@@ -53,6 +54,7 @@ python tests/test_package_imports.py
 python tests/test_core_spec.py
 python tests/test_core_plan.py
 python tests/test_parity_mot.py
+python tests/test_parity_structures.py
 python tests/test_trainer_smoke.py
 python tests/test_hydra_configs.py
 git diff --check

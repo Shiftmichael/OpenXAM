@@ -23,9 +23,10 @@ class TowerState:
 class Tower(nn.Module):
     """A stack of layers that one or more streams run through.
 
-    Training calls ``prepare``, ``add_noise`` and ``embed``, then the driver alternates
-    ``qkv`` and ``finish`` layer by layer, and ``readout`` and ``flow_loss`` close the step.
-    Inference calls ``start`` and ``embed_step`` instead of the first three.
+    Training calls ``prepare``, ``add_noise``, ``add_optional_noise`` and ``embed``, then the
+    driver alternates ``qkv`` and ``finish`` layer by layer, and ``readout`` and ``flow_loss``
+    close the step. A tower that attends only to itself runs ``run_block`` instead of the
+    two halves. Inference calls ``start`` and ``embed_step`` instead of the first ones.
     """
 
     num_layers: int
@@ -42,6 +43,9 @@ class Tower(nn.Module):
         """Add noise to the streams the plan makes noisy, and keep the training targets."""
         raise NotImplementedError
 
+    def add_optional_noise(self, batch: dict[str, Any], plan: Plan) -> None:
+        """Add noise to the streams that only sometimes get it. By default there are none."""
+
     def embed(self, batch: Mapping[str, Any], context: "Context") -> TowerState:
         """Turn the (noisy) inputs of a training step into tokens."""
         raise NotImplementedError
@@ -52,6 +56,10 @@ class Tower(nn.Module):
 
     def finish(self, layer: int, attn_out: Tensor, carry: Any, state: TowerState) -> Tensor:
         """The part of a layer after attention."""
+        raise NotImplementedError
+
+    def run_block(self, layer: int, x: Tensor, mask: Any, state: TowerState) -> Tensor:
+        """One whole layer, for a tower that attends only to itself."""
         raise NotImplementedError
 
     def readout(self, stream: str, x: Tensor, state: TowerState) -> Tensor:
@@ -68,6 +76,7 @@ class Tower(nn.Module):
 
     def embed_step(
         self,
+        plan: Plan,
         request: Mapping[str, Any],
         latents: Mapping[str, Tensor],
         timesteps: Mapping[str, Tensor],
@@ -85,6 +94,18 @@ class Tower(nn.Module):
     def project_context(self, context: Tensor) -> Optional[Tensor]:
         """The context as this tower reads it. A tower without cross-attention returns None."""
         return None
+
+    def project_features(self, features: Tensor) -> Tensor:
+        """Features of another tower, as this tower reads them through cross-attention."""
+        raise NotImplementedError
+
+    def feature_mask(self, batch: Mapping[str, Any], state: TowerState) -> Optional[Tensor]:
+        """Which of this tower's tokens others may read as features. None means all of them."""
+        return None
+
+    def checkpoint_parts(self) -> dict[str, nn.Module]:
+        """This tower's trained modules, by the name a checkpoint gives them."""
+        raise NotImplementedError
 
 
 @dataclass
