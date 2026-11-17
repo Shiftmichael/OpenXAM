@@ -6,7 +6,7 @@
 
 视觉语言动作模型（VLA）和世界动作模型（WAM）的主要区别，是什么信息进入了动作生成器：VLM 的知识、视频模型对动态的理解、写下来的计划、光流、触觉。OpenXAM 把这个 X 当成一项设置。目标是一套代码，让实验室用不多的 GPU，从公开的预训练权重出发，完成这些模型的微调、推理和评测。
 
-> **状态：早期。** 代码从 [EasyWAM](https://github.com/OpenMOSS/EasyWAM) 的 `d7c7c5a` 提交出发。下面列的模型都来自 EasyWAM，在本仓库里还没有重跑过。让 X 可以配置的多塔核心正在 `src/openxam/core` 里搭建：配置已经能编译，EasyWAM 的五种结构（MoT、MoT-Joint、MoT-IDM、Unified、Hidden）在小的随机模型上都和旧类完全一致，权重和训练器也接上了。用 `task=libero_xam_<结构>_wan22` 运行，结构是 `fastwam`、`mot_joint`、`mot_idm`、`unified` 或 `hidden`。真实权重和 GPU 还没试过。
+> **状态：早期。** 代码从 [EasyWAM](https://github.com/OpenMOSS/EasyWAM) 的 `d7c7c5a` 提交出发。下面列的模型都来自 EasyWAM，在本仓库里还没有重跑过。让 X 可以配置的多塔核心正在 `src/openxam/core` 里搭建：配置已经能编译，EasyWAM 的五种结构（MoT、MoT-Joint、MoT-IDM、Unified、Hidden）在小的随机模型上都和旧类完全一致，权重和训练器也接上了。用 `task=libero_xam_<结构>_wan22` 运行，结构是 `fastwam`、`mot_joint`、`mot_idm`、`unified` 或 `hidden`。真实权重和 GPU 还没试过。基准实验正在开始，谁在跑什么见下面的[进展](#进展)。
 
 ## 设计
 
@@ -38,14 +38,9 @@
 - **骨干：** Wan2.2-TI2V-5B、Cosmos-Predict2.5-2B、FLUX.2 Klein-4B。
 - **基准：** LIBERO、LIBERO-Plus、LIBERO-Pro、RoboTwin、RoboDojo、RoboCasa365、VLABench。
 
-## 路线
+## 进展
 
-- [x] 塔、读取表、噪声安排、损失都写成配置，在用 GPU 之前就能检查
-- [ ] 多塔核心跑通所有结构（五种结构在 Wan2.2 上都已跑通，见[设计说明](docs/design/multi_tower_core_zh.md)；Cosmos 还没测，FLUX 还在旧类上）
-- [ ] VLM 塔和 VLA 路径
-- [ ] 给定动作预测未来
-- [ ] 更多信息来源：未来特征、子目标图、光流、文字或代码计划
-- [ ] 诊断工具：动作跟随、测试时切断某一路读取
+开发和实验的进展表只维护一份，在英文 README 的 [Status](README.md#status) 一节：哪些在开发、哪些在跑、各由谁负责。实验怎么命名、权重放在哪、结果怎么报告，见[实验计划](docs/experiments_zh.md)。
 
 ## 快速开始
 
@@ -87,6 +82,7 @@ python tests/test_hydra_configs.py      # 需要 Hydra
 | 训练数据 | [索引](docs/instructions/data/README_zh.md) | [Index](docs/instructions/data/README.md) |
 | 基准 | [索引](docs/instructions/benchmark/README_zh.md) | [Index](docs/instructions/benchmark/README.md) |
 | 配置 | [索引](docs/instructions/config/README_zh.md) | [Index](docs/instructions/config/README.md) |
+| 实验计划 | [计划](docs/experiments_zh.md) | [Plan](docs/experiments.md) |
 
 ## 目录结构
 

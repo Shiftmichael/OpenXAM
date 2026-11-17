@@ -19,6 +19,7 @@ This directory separates operational instructions, research articles, and result
 | --- | --- | --- |
 | What WAM Architecture Do We Need? | [Read](blogs/blog01_arch.md) | [阅读](blogs/blog01_arch_zh.md) |
 | Benchmark results | [View](results/result.md) | [查看](results/result_zh.md) |
+| Experiment plan and OpenXAM results | [Read](experiments.md) | [阅读](experiments_zh.md) |
 
 ## Directory layout
 
@@ -26,6 +27,8 @@ This directory separates operational instructions, research articles, and result
 docs/
 ├── README.md              # English documentation index
 ├── README_zh.md           # Chinese documentation index
+├── experiments.md         # Experiment plan and OpenXAM results
+├── experiments_zh.md      # Chinese experiment plan
 ├── blogs/                 # Architecture analysis and project articles
 ├── results/               # Benchmark result summaries
 └── instructions/

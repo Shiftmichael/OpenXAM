@@ -6,7 +6,7 @@
 
 Vision-language-action models (VLAs) and world-action models (WAMs) differ mainly in what information reaches the action generator: a VLM's knowledge, a video model's sense of dynamics, a written plan, optical flow, touch. OpenXAM treats that X as a setting. The goal is one codebase where a lab can fine-tune, run and evaluate these models on a modest GPU budget, starting from public pretrained weights.
 
-> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and all five EasyWAM structures (MoT, MoT-Joint, MoT-IDM, Unified and Hidden) match the EasyWAM classes exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_<structure>_wan22` to run one, with `fastwam`, `mot_joint`, `mot_idm`, `unified` or `hidden`. They have not been tried with real weights or on a GPU yet.
+> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and all five EasyWAM structures (MoT, MoT-Joint, MoT-IDM, Unified and Hidden) match the EasyWAM classes exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_<structure>_wan22` to run one, with `fastwam`, `mot_joint`, `mot_idm`, `unified` or `hidden`. They have not been tried with real weights or on a GPU yet. Benchmark experiments are starting; [Status](#status) shows who runs what.
 
 ## Design
 
@@ -38,14 +38,39 @@ Everything below comes from EasyWAM and has not been rerun in this repository. E
 - **Backbones:** Wan2.2-TI2V-5B, Cosmos-Predict2.5-2B and FLUX.2 Klein-4B.
 - **Benchmarks:** LIBERO, LIBERO-Plus, LIBERO-Pro, RoboTwin, RoboDojo, RoboCasa365 and VLABench.
 
-## Roadmap
+## Status
 
-- [x] Configs for towers, read table, noise plan and losses, with checks that run before any GPU time
-- [ ] Multi-tower core running every structure (all five run on Wan2.2, see [the design note](docs/design/multi_tower_core_zh.md); Cosmos is untested and FLUX stays on the EasyWAM classes)
-- [ ] VLM tower and a VLA path
-- [ ] Given-action video prediction
-- [ ] More sources: future features, subgoal images, optical flow, text or code plans
-- [ ] Diagnostics: action following, cutting a read at test time
+Owners keep their rows current. The [experiment plan](docs/experiments.md) explains how runs are named, stored and reported.
+
+✅ done · 🏃 running · 🛠 in development · 📋 planned · ⏸ later round
+
+### Development
+
+| Item | Status | Owner | Notes |
+| --- | :---: | --- | --- |
+| Configs for towers, read table, noise plan and losses, checked before any GPU time | ✅ | Shiftmichael | |
+| Multi-tower core running the five EasyWAM structures on Wan2.2 | ✅ | Shiftmichael | Matches the EasyWAM classes on small models, see [the design note](docs/design/multi_tower_core_zh.md); first run with real weights is in round 1 |
+| New-core tasks for RoboTwin, RoboDojo, RoboCasa365 and VLABench | 📋 | | These benchmarks use the `*_easywam_*` tasks for now |
+| Cosmos-Predict2.5 and LoRA on the new core | 📋 | | Untested; FLUX.2 stays on the EasyWAM classes |
+| VLM tower and a VLA path | 📋 | | |
+| Given-action video prediction | 📋 | | |
+| More sources: future features, subgoal images, optical flow, text or code plans | 📋 | | |
+| Diagnostics: action following, cutting a read at test time | 📋 | | |
+
+### Experiments
+
+Round 1 uses Wan2.2-TI2V-5B with full fine-tuning. A running cell links to its issue; a done cell shows the score.
+
+| Benchmark | Owner | MoT | MoT-Joint | MoT-IDM | Unified | Hidden |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| LIBERO, released weights | | 📋 | 📋 | 📋 | 📋 | 📋 |
+| LIBERO, trained here | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| LIBERO-Plus, released weights | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| LIBERO-Pro, released weights | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| RoboTwin 2.0 | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| RoboDojo | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| RoboCasa365 | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
+| VLABench | | 📋 | ⏸ | ⏸ | ⏸ | ⏸ |
 
 ## Quick start
 
@@ -87,6 +112,7 @@ python tests/test_hydra_configs.py      # needs Hydra
 | Training data | [Index](docs/instructions/data/README.md) | [索引](docs/instructions/data/README_zh.md) |
 | Benchmarks | [Index](docs/instructions/benchmark/README.md) | [索引](docs/instructions/benchmark/README_zh.md) |
 | Configuration | [Index](docs/instructions/config/README.md) | [索引](docs/instructions/config/README_zh.md) |
+| Experiment plan | [Plan](docs/experiments.md) | [计划](docs/experiments_zh.md) |
 
 ## Repository layout
 

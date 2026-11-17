@@ -19,6 +19,7 @@
 | --- | --- | --- |
 | 什么样的 WAM 架构是我们需要的？ | [Read](blogs/blog01_arch.md) | [阅读](blogs/blog01_arch_zh.md) |
 | Benchmark 结果 | [View](results/result.md) | [查看](results/result_zh.md) |
+| 实验计划和 OpenXAM 的结果 | [Read](experiments.md) | [阅读](experiments_zh.md) |
 
 ## 目录结构
 
@@ -26,6 +27,8 @@
 docs/
 ├── README.md              # 英文文档索引
 ├── README_zh.md           # 中文文档索引
+├── experiments.md         # 实验计划和 OpenXAM 的结果（英文）
+├── experiments_zh.md      # 中文实验计划
 ├── blogs/                 # 架构分析和项目文章
 ├── results/               # Benchmark 结果汇总
 └── instructions/

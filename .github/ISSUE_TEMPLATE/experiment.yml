@@ -1,0 +1,89 @@
+name: Experiment
+description: Plan and track one training or evaluation run.
+title: "[Experiment] <benchmark> <structure> <run-id>"
+labels: ["experiment"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue per run. [docs/experiments.md](../blob/main/docs/experiments.md) explains how runs are named, stored and reported. This repository is public, so keep unpublished work out of this issue.
+  - type: dropdown
+    id: benchmark
+    attributes:
+      label: Benchmark
+      options:
+        - LIBERO
+        - LIBERO-Plus
+        - LIBERO-Pro
+        - RoboTwin 2.0
+        - RoboDojo
+        - RoboCasa365
+        - VLABench
+    validations:
+      required: true
+  - type: dropdown
+    id: structure
+    attributes:
+      label: Structure
+      options:
+        - MoT
+        - MoT-Joint
+        - MoT-IDM
+        - Unified
+        - Hidden
+        - Other (describe under notes)
+    validations:
+      required: true
+  - type: dropdown
+    id: run_type
+    attributes:
+      label: Run type
+      options:
+        - Evaluate released weights
+        - Train and evaluate
+    validations:
+      required: true
+  - type: input
+    id: task
+    attributes:
+      label: Task and overrides
+      placeholder: task=robotwin_easywam_mot_wan22 seed=0
+    validations:
+      required: true
+  - type: input
+    id: run_id
+    attributes:
+      label: Run ID
+      placeholder: 20261118-yourname-s0
+  - type: input
+    id: commit
+    attributes:
+      label: OpenXAM commit
+    validations:
+      required: true
+  - type: input
+    id: compute
+    attributes:
+      label: Compute
+      placeholder: GPU type × count, expected hours
+  - type: input
+    id: checkpoint
+    attributes:
+      label: Kept checkpoint
+      description: The Hugging Face repository that will hold the kept checkpoint, if any. No machine paths.
+  - type: textarea
+    id: results
+    attributes:
+      label: Results
+      description: Fill in when the run is done. Paste the main numbers or summary.csv, with the simulator version and the number of episodes.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Public repository
+      options:
+        - label: Nothing in this issue is unpublished work that should stay private.
+          required: true
