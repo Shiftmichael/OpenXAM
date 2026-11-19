@@ -6,7 +6,7 @@
 
 Vision-language-action models (VLAs) and world-action models (WAMs) differ mainly in what information reaches the action generator: a VLM's knowledge, a video model's sense of dynamics, a written plan, optical flow, touch. OpenXAM treats that X as a setting. The goal is one codebase where a lab can fine-tune, run and evaluate these models on a modest GPU budget, starting from public pretrained weights.
 
-> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and all five EasyWAM structures (MoT, MoT-Joint, MoT-IDM, Unified and Hidden) match the EasyWAM classes exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_<structure>_wan22` to run one, with `fastwam`, `mot_joint`, `mot_idm`, `unified` or `hidden`. They have not been tried with real weights or on a GPU yet. Benchmark experiments are starting; [Status](#status) shows who runs what.
+> **Status: early.** The code started from [EasyWAM](https://github.com/OpenMOSS/EasyWAM) at commit `d7c7c5a`. The models listed below are EasyWAM's and have not been rerun here yet. The multi-tower core that makes X configurable is being built in `src/openxam/core`: configs compile, and all five EasyWAM structures (MoT, MoT-Joint, MoT-IDM, Unified and Hidden) match the EasyWAM classes exactly on small random models, including checkpoints and the trainer. Use `task=libero_xam_<structure>_wan22` to run one, with `fastwam`, `mot_joint`, `mot_idm`, `unified` or `hidden`. MoT also matches its EasyWAM class with EasyWAM's released LIBERO weights on a GPU and runs in the LIBERO evaluator; the other four have not been tried with real weights yet. Benchmark experiments are starting; [Status](#status) shows who runs what.
 
 ## Design
 
@@ -49,7 +49,7 @@ Owners keep their rows current. The [experiment plan](docs/experiments.md) expla
 | Item | Status | Owner | Notes |
 | --- | :---: | --- | --- |
 | Configs for towers, read table, noise plan and losses, checked before any GPU time | ✅ | Shiftmichael | |
-| Multi-tower core running the five EasyWAM structures on Wan2.2 | ✅ | Shiftmichael | Matches the EasyWAM classes on small models, see [the design note](docs/design/multi_tower_core_zh.md); first run with real weights is in round 1 |
+| Multi-tower core running the five EasyWAM structures on Wan2.2 | ✅ | Shiftmichael | Matches the EasyWAM classes on small models. MoT also matches bit for bit with EasyWAM's released LIBERO weights on a GPU (`tests/gpu/`); see [the design note](docs/design/multi_tower_core_zh.md) |
 | New-core tasks for RoboTwin, RoboDojo, RoboCasa365 and VLABench | 📋 | | These benchmarks use the `*_easywam_*` tasks for now |
 | Cosmos-Predict2.5 and LoRA on the new core | 📋 | | Untested; FLUX.2 stays on the EasyWAM classes |
 | VLM tower and a VLA path | 📋 | | |

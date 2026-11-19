@@ -1,6 +1,6 @@
 # OpenXAM 多塔核心：接口草案
 
-状态：配置检查和编译已实现。EasyWAM 的五种结构（MoT、MoT-Joint、MoT-IDM、Unified、Hidden）都已跑在这套核心上，骨干是 Wan2.2，能走训练器。只差真实权重和 GPU 上的验证。
+状态：配置检查和编译已实现。EasyWAM 的五种结构（MoT、MoT-Joint、MoT-IDM、Unified、Hidden）都已跑在这套核心上，骨干是 Wan2.2，能走训练器。MoT 已经用 EasyWAM 发布的权重在 GPU 上核对过，另外四种结构还差真实权重和 GPU 上的验证。
 
 ## 1. 要解决什么
 
@@ -538,10 +538,13 @@ plans = plan_infer(spec, "act")                           # 每个阶段一份�
 - **评测后接着训练**：评测在 inference mode 下跑。原来的缓存会把这时算的位置编码交给之后的训练步，训练步就会报错，旧类也一样。先只用当前画面出动作、再生成视频、再训练，就能复现。现在两种模式各缓存各的，五种结构都测过。
 - **Hydra 配置**：五个 `task=libero_xam_*_wan22` 都能组合出来，除模型入口外和旧任务相同。挪进配置文件的设置（Hidden 读第几层、IDM 的加噪概率）和旧配置一致（`tests/test_hydra_configs.py`）。
 - **`grad: false`**：断开后输出不变，视频塔收不到动作损失的梯度。
+- **MoT 的真实权重**：用 EasyWAM 发布的 `EasyWAM-MoT-Wan22` 权重，在一张 A100 上用同一批真实 LIBERO 样本跑旧类和 `XAMModel`。把旧类的模块接进 `XAMModel`、以及从配置构建再自己读权重，两种都测了。bfloat16 下 loss、全部梯度和采样出的动作都逐位相同，按训练器的做法开 autocast 也相同；`XAMModel` 读进来的参数和旧类逐位相同。float32 下 loss 和动作逐位相同，梯度的差别和旧类自己跑两次的差别一样大（`tests/gpu/check_real_weights.py`）。
+- **LIBERO 评测**：`libero_easywam_mot_wan22` 和 `libero_xam_fastwam_wan22` 用同一份发布权重都能把 `eval_libero_single.py` 跑完。新核心自己算的 T5 文本编码和旧类逐位相同；两边拿到逐位相同的观测时，输出的动作也逐位相同（`tests/gpu/trace_libero_eval.py`）。LIBERO 的回放本身不能逐位复现：腕部相机的渲染在两次运行之间会差一个灰度级，旧类自己跑两次也一样。所以新旧对比要看成功率，不能看轨迹。
 
 **还没有验证：**
 
-- 真实权重和 GPU 上的结果。上面都是 CPU 上的小模型，真实的评测流程也没走过。
+- 另外四种结构（MoT-Joint、MoT-IDM、Unified、Hidden）在真实权重和 GPU 上的结果。
+- 按完整协议跑出的基准分数。上面的 LIBERO 评测只跑了 LIBERO-Spatial 的一个任务。
 - LoRA 的存取。用来测试的环境没有装 `peft`。
 - Cosmos 塔。`towers/dit.py` 保留了它的分支，但还没有测试。Unified 和 Hidden 的旧类在解算器那一步前把当前画面的预测清零，用 Wan 的解算器时没有影响，换成 Cosmos 的多步解算器就有。Cosmos 版的 Unified 还要用共享的调度器。
 - FLUX 还在旧类上。
