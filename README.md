@@ -50,7 +50,7 @@ Owners keep their rows current. The [experiment plan](docs/experiments.md) expla
 | --- | :---: | --- | --- |
 | Configs for towers, read table, noise plan and losses, checked before any GPU time | ✅ | Shiftmichael | |
 | Multi-tower core running the five EasyWAM structures on Wan2.2 | ✅ | Shiftmichael | Matches the EasyWAM classes on small models. MoT also matches bit for bit with EasyWAM's released LIBERO weights on a GPU (`tests/gpu/`); see [the design note](docs/design/multi_tower_core_zh.md) |
-| New-core tasks for RoboTwin, RoboDojo, RoboCasa365 and VLABench | 📋 | | These benchmarks use the `*_easywam_*` tasks for now |
+| New-core tasks for RoboTwin, RoboDojo, RoboCasa365 and VLABench | 🛠 | jackwiencek | These benchmarks use the `*_easywam_*` tasks for now |
 | Cosmos-Predict2.5 and LoRA on the new core | 📋 | | Untested; FLUX.2 stays on the EasyWAM classes |
 | VLM tower and a VLA path | 📋 | | |
 | Given-action video prediction | 📋 | | |
